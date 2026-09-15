@@ -49,11 +49,10 @@ export type Vad = {
 }
 
 // ---------------------------------------------------------------------------
-// Tuning
+// Tuning — Google Voice Search Calibrated VAD
 // ---------------------------------------------------------------------------
 
-/** How far above the noise floor the signal must rise to count as speech.
- *  Tuned to 3.2 to prevent shallow breaths, keyboard clacks, and ambient room noise from falsely triggering. */
+/** How far above the noise floor the signal must rise to count as speech. */
 const TRIGGER_OVER_FLOOR = 3.2
 /** While he is speaking, demand this much more, so residual echo is ignored. */
 const GUARD_BOOST = 2.4
@@ -61,13 +60,21 @@ const GUARD_BOOST = 2.4
  *  dip mid-word from cutting a sentence in half. */
 const RELEASE_RATIO = 0.6
 
-/** Sustained vocal energy for 175ms confirms speech rather than a transient tap, click, or cough. */
-const START_MS = 175
+/** Absolute minimum energy floor for speech onset (0.016).
+ *  Prevents shallow breathing, mouse moves, desk rustles, and quiet room hiss from triggering speech. */
+const MIN_SPEECH_THRESHOLD = 0.016
+
+/** Minimum duration of authentic human speech in milliseconds (400ms).
+ *  Sub-400ms sounds (coughs, sneezes, clicks, throat clearing, taps) are discarded before STT. */
+const MIN_UTTERANCE_MS = 400
+
+/** Sustained vocal energy for 200ms confirms speech rather than a transient tap, click, or cough. */
+const START_MS = 200
 /**
- * Quiet for this long ends the SEGMENT.
- * Tuned to 360ms (down from 650ms) to shave 290ms of dead latency as soon as the speaker finishes.
+ * Quiet for this long ends the SEGMENT (500ms).
+ * Matches Google Voice Search cadence endpointing: allows natural human pauses between words without chopping.
  */
-const SILENCE_MS = 360
+const SILENCE_MS = 500
 /** Nobody speaks one segment for this long; cut it and transcribe what we have. */
 const MAX_MS = 20000
 
@@ -110,14 +117,30 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
 
   const mime = pickMime()
   const ctx = new AudioContext()
-  // Some browsers start an AudioContext suspended even after a gesture; resume
-  // is a no-op when it is already running.
   void ctx.resume()
   const source = ctx.createMediaStreamSource(stream)
+
+  // Google Voice Search Vocal Bandpass Filter:
+  // Isolates authentic human vocal formant band (160Hz - 3800Hz)
+  // Strips DC offset, table knocks, air currents, breathing pops (<160Hz)
+  // Strips keyboard clicks, mouse snaps, high-frequency hiss (>3800Hz)
+  const highpass = ctx.createBiquadFilter()
+  highpass.type = 'highpass'
+  highpass.frequency.value = 160
+  highpass.Q.value = 0.7
+
+  const lowpass = ctx.createBiquadFilter()
+  lowpass.type = 'lowpass'
+  lowpass.frequency.value = 3800
+  lowpass.Q.value = 0.7
+
+  source.connect(highpass)
+  highpass.connect(lowpass)
+
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 1024
   analyser.smoothingTimeConstant = 0.35
-  source.connect(analyser)
+  lowpass.connect(analyser)
   const buf = new Float32Array(analyser.fftSize)
 
   let stopped = false
@@ -180,6 +203,10 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
       const blob = new Blob(parts, { type })
       parts = []
       const ms = startedAt ? performance.now() - startedAt : 0
+      // Ignore sub-400ms sounds (coughs, mic bumps, clicks, throat clearing)
+      if (ms < MIN_UTTERANCE_MS) {
+        return
+      }
       h.onEnd(blob, ms)
     }
     rec.onstop = finalise
@@ -206,7 +233,10 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
       floor = Math.max(floor, 0.003)
     }
 
-    threshold = floor * TRIGGER_OVER_FLOOR * (guard ? GUARD_BOOST : 1)
+    // Google Voice Search Dual Threshold:
+    // Requires both a 3.2x rise over ambient room noise AND reaching absolute vocal energy (0.016)
+    const calcThreshold = floor * TRIGGER_OVER_FLOOR * (guard ? GUARD_BOOST : 1)
+    threshold = Math.max(calcThreshold, MIN_SPEECH_THRESHOLD * (guard ? GUARD_BOOST : 1))
     const release = threshold * RELEASE_RATIO
     const now = performance.now()
 
@@ -250,6 +280,8 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
       discardRecorder()
       try {
         source.disconnect()
+        highpass.disconnect()
+        lowpass.disconnect()
         void ctx.close()
       } catch {
         /* noop */

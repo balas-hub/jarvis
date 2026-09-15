@@ -181,17 +181,38 @@ function holdFor(text: string): number {
   if (TRAILS.test(text.trim())) return CONTINUE_MS
   if (CONTINUES.test(words[words.length - 1])) return CONTINUE_MS
 
-  // Common directive and action command starters: fire immediately with 0ms delay!
+  // Standalone single-word directives that are naturally complete on their own
+  const STANDALONE_1WORD =
+    /^(stop|pause|resume|mute|unmute|cancel|screenshot|lock|sleep|restart|shutdown|hello|hi|hey|yes|no)$/i
+
+  // Transitive verbs that require an object (e.g. "open chrome", "send a message")
+  // If only 1 word was said ("open"), do NOT fire immediately — the user is still speaking!
+  const TRANSITIVE_STARTERS =
+    /^(open|close|play|turn|switch|set|type|click|run|send|message|call|google|youtube|spotify|change|show|launch|start|write|read)$/i
+
+  // Question starters that require a body (e.g. "what time is it", "how are you")
+  const QUESTION_STARTERS =
+    /^(what|whats|what's|how|hows|how's|who|where|when|why|tell|explain)$/i
+
   const firstWord = (words[0] || '').toLowerCase()
-  const ACTION_STARTERS =
-    /^(open|close|play|pause|stop|mute|unmute|volume|turn|switch|set|what|whats|what's|how|hows|how's|who|where|when|tell|show|take|screen|screenshot|clear|minimize|minimise|maximize|exit|quit|restart|shutdown|hello|hi|hey|yes|no|skip|next|back|type|click|run|send|message|call|google|youtube|spotify)$/i
-  if (ACTION_STARTERS.test(firstWord)) return 0
 
-  // Fast-settle for action commands, overrides, Tamil phrases, or short 1-3 word directives
+  if (words.length === 1) {
+    if (STANDALONE_1WORD.test(firstWord)) return 0
+    if (TRANSITIVE_STARTERS.test(firstWord) || QUESTION_STARTERS.test(firstWord)) {
+      return CONTINUE_MS // Wait for the rest of the sentence
+    }
+    return 600
+  }
+
+  // Multi-word commands & questions: if >= 2 words, fire promptly!
+  if (TRANSITIVE_STARTERS.test(firstWord) || QUESTION_STARTERS.test(firstWord) || STANDALONE_1WORD.test(firstWord)) {
+    return SETTLE_MS
+  }
+
+  // Fast-settle for action commands, overrides, Tamil phrases
   if (OVERRIDE.test(text) || /[\u0B80-\u0BFF]/.test(text)) return 0
-  if (words.length <= 3) return 0
 
-  // General multi-clause thoughts: fast settle (down from 250ms)
+  // General multi-clause thoughts: fast settle
   return SETTLE_MS
 }
 
@@ -491,6 +512,14 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
 
       if (!said) {
         drop('nothing intelligible in the segment')
+        return
+      }
+
+      // Reject isolated noise artifacts, timestamps, or hallucinations
+      const cleanLower = said.toLowerCase().replace(/^[^\w\s]+|[^\w\s]+$/g, '').trim()
+      const NOISE_WORDS = /^(none|null|undefined|00:00|\d{1,2}:\d{2}|you|thank you|thanks for watching|subscribe|bye|yeah|uh|um|ah|hmm|so|the|a|oh|ok|okay)$/i
+      if (!cleanLower || NOISE_WORDS.test(cleanLower)) {
+        drop(`discarded noise artifact "${said}"`)
         return
       }
 

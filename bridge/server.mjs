@@ -541,10 +541,38 @@ function getGenAIClient() {
   return _genaiClient
 }
 
+/** Google Voice Search System Instruction for zero-hallucination, high-fidelity STT */
+const GOOGLE_VOICE_SEARCH_INSTRUCTION = `You are the Google Voice Search speech recognition engine.
+Your sole responsibility is verbatim transcription of clear, audible human speech.
+MANDATORY RULES:
+1. If the audio contains only silence, ambient noise, room hiss, fan or AC vibration, breathing, keyboard typing, mouse clicks, chair squeaks, throat clearing, coughs, or unintelligible murmurs, you MUST output the exact single token: NONE.
+2. NEVER guess, invent, or hallucinate words from noise or silence.
+3. NEVER output timecodes or timestamps (e.g., "00:00").
+4. If and only if clear human speech is present, output ONLY the spoken words with standard capitalization and punctuation. No commentary, no tags, no markdown.`
+
+function filterSttNoise(raw) {
+  if (!raw) return ''
+  const text = String(raw).trim()
+  if (!text) return ''
+  if (/^NONE$/i.test(text)) return ''
+  if (/^\[?NO_SPEECH\]?$/i.test(text)) return ''
+  if (/^\d{1,2}:\d{2}/.test(text)) return '' // "00:00" timestamps
+  if (/^(\[.*\]|<.*>|\(.*\))$/.test(text)) return '' // [music], (cough)
+
+  // Common noise hallucinations
+  const lower = text.toLowerCase().replace(/[.!?,]/g, '').trim()
+  const NOISE_HALLUCINATIONS = [
+    'you', 'thank you', 'thanks for watching', 'subscribe', 'bye', 'mbc',
+    'yeah', 'uh', 'um', 'ah', 'hmm', 'so', 'the', 'a', 'oh', 'okay', 'ok'
+  ]
+  if (NOISE_HALLUCINATIONS.includes(lower)) {
+    return ''
+  }
+  return text
+}
+
 /**
- * Transcribe an audio buffer using Google Gemini API.
- * First tries Google's specialized gemini-3.5-transcribe model.
- * Falls back to gemini-3.5-flash-lite if needed.
+ * Transcribe an audio buffer using Google Gemini API calibrated to Google Voice Search standards.
  */
 async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
   const ai = getGenAIClient()
@@ -554,23 +582,23 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
   if (!mimeType || mimeType === 'application/octet-stream') mimeType = 'audio/webm'
   const base64 = audioBuffer.toString('base64')
 
-  // 1. Primary: gemini-3.5-flash-lite (high RPM, fast multimodal transcription, supports code-switching/Tanglish)
+  // 1. Primary: gemini-3.5-flash-lite (fast multimodal transcription)
   try {
     const res = await ai.models.generateContent({
       model: 'gemini-3.5-flash-lite',
       contents: [
         { inlineData: { mimeType, data: base64 } },
-        'Transcribe the speech in this audio verbatim. Output ONLY the transcribed text without quotes, markdown, or commentary. If there is no intelligible speech, return an empty string.'
+        'Transcribe the speech in this audio. If there is no clear human speech, output NONE.'
       ],
       config: {
+        systemInstruction: GOOGLE_VOICE_SEARCH_INSTRUCTION,
         maxOutputTokens: 64,
         temperature: 0.0,
       },
     })
-    const text = (res.text || '').trim()
-    if (text && !/^(\[.*\]|<.*>)$/.test(text)) {
-      return text
-    }
+    const text = filterSttNoise(res.text)
+    if (text) return text
+    if (/^NONE$/i.test((res.text || '').trim())) return ''
   } catch (err) {
     console.warn('[jarvis] flash-lite transcribe warning, trying fallback:', err?.message || err)
   }
@@ -581,17 +609,17 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
       model: 'gemini-3.6-flash',
       contents: [
         { inlineData: { mimeType, data: base64 } },
-        'Transcribe the speech in this audio verbatim. Output ONLY the transcribed text without quotes, markdown, or commentary. If there is no intelligible speech, return an empty string.'
+        'Transcribe the speech in this audio. If there is no clear human speech, output NONE.'
       ],
       config: {
+        systemInstruction: GOOGLE_VOICE_SEARCH_INSTRUCTION,
         maxOutputTokens: 64,
         temperature: 0.0,
       },
     })
-    const text = (res.text || '').trim()
-    if (text && !/^(\[.*\]|<.*>)$/.test(text)) {
-      return text
-    }
+    const text = filterSttNoise(res.text)
+    if (text) return text
+    if (/^NONE$/i.test((res.text || '').trim())) return ''
   } catch (err) {
     console.warn('[jarvis] gemini-3.6-flash transcribe warning:', err?.message || err)
   }
@@ -605,9 +633,8 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
       ]
     })
     const transcribed = res.candidates?.[0]?.content?.parts?.[0]?.audioTranscription?.text || res.text || ''
-    if (transcribed && transcribed.trim()) {
-      return transcribed.trim()
-    }
+    const text = filterSttNoise(transcribed)
+    if (text) return text
   } catch (err) {
     console.error('[jarvis] all Gemini STT models failed:', err?.message || err)
   }
@@ -1122,7 +1149,7 @@ const handleRequest = async (req, res) => {
     }
     // Silence, or a brief click/tap. Nothing to transcribe, and calling out to the API
     // for it would only add latency and risk hallucination.
-    if (size < 2000) {
+    if (size < 3500) {
       res.writeHead(200, { ...cors, 'content-type': 'application/json' })
       return res.end(JSON.stringify({ text: '' }))
     }
