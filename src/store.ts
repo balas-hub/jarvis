@@ -129,7 +129,7 @@ export type UiState = {
     intensity: number
     /** Rotation-rate multiplier. 0 .. 5, default 1. */
     spin: number
-    style: 'ring' | 'sphere' | 'wire' | 'humanoid'
+    style: 'ring' | 'sphere' | 'wire'
     visible: boolean
   }
   orbits: OrbitObject[]
@@ -145,7 +145,7 @@ export type UiState = {
 
 export const UI_DEFAULTS: UiState = {
   accent: null, background: null, palette: {},
-  reactor: { color: null, scale: 1, intensity: 1, spin: 1, style: 'humanoid', visible: true },
+  reactor: { color: null, scale: 1, intensity: 1, spin: 1, style: 'ring', visible: true },
   orbits: [],
   chrome: { systems: true, transcript: true, toolBadge: true, suggestions: true, brand: true },
   effect: null,
@@ -238,10 +238,6 @@ type State = {
   focusedBlade: string | null
   /** A blade thrown to full screen, or null. */
   expandedBlade: string | null
-  /** 0 to 100 assembling progress for the humanoid avatar */
-  assembleProgress: number
-  /** Monotonic counter to trigger re-assembly */
-  assembleTrigger: number
   /** JARVIS's control over his own appearance. UI_DEFAULTS == the stock look. */
   ui: UiState
 
@@ -249,8 +245,6 @@ type State = {
   setGestures: (on: boolean) => void
   setLooking: (why: string | null) => void
   setBootNote: (n: string) => void
-  setAssembleProgress: (p: number) => void
-  triggerAssemble: () => void
   pushPanel: (p: Panel) => void
   clearPanels: () => void
   pushBlade: (b: Blade) => void
@@ -291,8 +285,6 @@ export const useStore = create<State>((set) => ({
   blades: [],
   focusedBlade: null,
   expandedBlade: null,
-  assembleProgress: 0,
-  assembleTrigger: 0,
   bootNote: '',
   ui: defaultUi(),
 
@@ -300,9 +292,6 @@ export const useStore = create<State>((set) => ({
   setGestures: (gestures) => set({ gestures }),
   setLooking: (looking) => set({ looking }),
   setBootNote: (bootNote) => set({ bootNote }),
-  setAssembleProgress: (assembleProgress) => set({ assembleProgress }),
-  triggerAssemble: () =>
-    set((s) => ({ assembleTrigger: s.assembleTrigger + 1, assembleProgress: 0 })),
   // Three is as many as fits around the reactor without crowding it. Sticky
   // panels are exempt from the cull — the tool description promises they stay
   // until replaced, and a plain slice(-3) silently evicted them the moment a

@@ -95,7 +95,7 @@ export const GEMINI_TOOLS = [
       type: 'OBJECT',
       properties: {
         color: { type: 'STRING', description: 'Hex or color name for the reactor core.' },
-        style: { type: 'STRING', description: 'Reactor style: humanoid (supernatural particle humanoid avatar), ring, sphere, wire, or auto.', enum: ['humanoid', 'ring', 'sphere', 'wire', 'auto'] },
+        style: { type: 'STRING', description: 'Reactor style: ring, sphere, wire, or auto.', enum: ['ring', 'sphere', 'wire', 'auto'] },
         spin: { type: 'NUMBER', description: 'Rotation speed multiplier (0 to 5).' },
         scale: { type: 'NUMBER', description: 'Scale multiplier (0.5 to 2.5).' },
         intensity: { type: 'NUMBER', description: 'Glow intensity multiplier (0 to 3).' },

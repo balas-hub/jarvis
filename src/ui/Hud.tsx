@@ -178,7 +178,6 @@ export function Hud() {
   const gestures = useStore((s) => s.gestures)
   const looking = useStore((s) => s.looking)
   const ui = useStore((s) => s.ui)
-  const assembleProgress = useStore((s) => s.assembleProgress)
 
   // accentFor folds JARVIS's overrides in over the phase colour, so one
   // variable on the root carries a theme change into every .hud-* rule without
@@ -193,31 +192,6 @@ export function Hud() {
   useEffect(() => {
     setActiveProfileState(getActiveProfile())
   }, [voice])
-
-  const toggleAvatarStyle = () => {
-    const nextStyle = ui.reactor.style === 'humanoid' ? 'ring' : 'humanoid'
-    useStore.getState().applyUi({ reactor: { style: nextStyle } })
-    if (nextStyle === 'humanoid') {
-      useStore.getState().triggerAssemble()
-    }
-  }
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (
-        (e.target as HTMLElement)?.tagName === 'INPUT' ||
-        (e.target as HTMLElement)?.tagName === 'TEXTAREA'
-      ) {
-        return
-      }
-      if (e.key === 'h' || e.key === 'H') {
-        e.preventDefault()
-        toggleAvatarStyle()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [ui.reactor.style])
 
   const handleCommandSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -363,36 +337,6 @@ export function Hud() {
         <div className="rail-item mono">{(level * 100).toFixed(0).padStart(3, '0')}%</div>
       </aside>
 
-      {/* Floating Supernatural Humanoid Assembly Telemetry (Matches Reference Photos) */}
-      <AnimatePresence>
-        {ui.reactor.style === 'humanoid' && assembleProgress < 100 && (
-          <motion.div
-            className="hud-assemble-telemetry"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.8 } }}
-          >
-            <div className="assemble-title-row">
-              <span className="assemble-dot" />
-              <span className="assemble-title">ASSEMBLING ... {assembleProgress}%</span>
-            </div>
-            <div className="assemble-bar">
-              <div className="assemble-bar-fill" style={{ width: `${assembleProgress}%` }} />
-            </div>
-            <div className="assemble-details">
-              <span className="assemble-line">
-                {assembleProgress < 25
-                  ? 'COSMIC VORTEX COALESCING'
-                  : assembleProgress < 65
-                  ? 'NEURAL MATRIX CONVERGING'
-                  : 'SYNCHRONIZING BIO-ENERGY'}
-              </span>
-              <span className="assemble-stats">PTS: 22,000</span>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       <AnimatePresence>
         {activeTool && ui.chrome.toolBadge && (
           <motion.div
@@ -532,21 +476,6 @@ export function Hud() {
         <div className="hud-controls">
           <button
             type="button"
-            className="hud-avatar-btn active"
-            onClick={toggleAvatarStyle}
-            title={
-              ui.reactor.style === 'humanoid'
-                ? 'Active Avatar: Supernatural Particle Humanoid. Click to switch to Reactor Core (or press H).'
-                : 'Active Avatar: Arc Reactor Core. Click to switch to Supernatural Humanoid (or press H).'
-            }
-          >
-            <span className="avatar-btn-icon">⚡</span>
-            <span>AVATAR: {ui.reactor.style === 'humanoid' ? 'HUMANOID' : 'REACTOR'}</span>
-            <kbd className="avatar-btn-key">H</kbd>
-          </button>
-
-          <button
-            type="button"
             className={`hud-gesture-btn ${gestures ? 'active' : ''}`}
             onClick={toggleGestures}
             title={gestures ? 'Click to disable gesture tracking (or press G)' : 'Click to enable webcam gesture tracking (or press G)'}
@@ -569,7 +498,7 @@ export function Hud() {
         </div>
         <div className="hud-hint-bar">
           <span className="hint">
-            say <b>“hey jarvis”</b> · <kbd>Space</kbd> talk · <kbd>H</kbd> avatar · <kbd>Ctrl+Shift+J</kbd> summon / hide
+            say <b>“hey jarvis”</b> · <kbd>Space</kbd> talk · <kbd>Ctrl+Shift+J</kbd> summon / hide
             {voice && (
               <>
                 {' · '}

@@ -457,14 +457,6 @@ export default function App() {
         case 'effect':
           s.fireEffect(a.kind)
           break
-        case 'reactor': {
-          const rArgs = args as Partial<import('./store').UiState['reactor']>
-          s.applyUi({ reactor: rArgs })
-          if (rArgs?.style === 'humanoid') {
-            s.triggerAssemble()
-          }
-          break
-        }
         case 'reset':
           s.resetUi()
           break

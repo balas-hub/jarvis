@@ -16,6 +16,7 @@
  */
 
 import { WebSocketServer } from 'ws'
+import { GoogleGenAI } from '@google/genai'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import { displayServer } from './panels.mjs'
 import { uiServer } from './ui.mjs'
@@ -526,6 +527,67 @@ function elevenKey() {
   }
 }
 
+function geminiKey() {
+  return process.env.GEMINI_API_KEY || null
+}
+
+let _genaiClient = null
+function getGenAIClient() {
+  const key = geminiKey()
+  if (!key) return null
+  if (!_genaiClient) {
+    _genaiClient = new GoogleGenAI({ apiKey: key, httpOptions: { timeout: 25000 } })
+  }
+  return _genaiClient
+}
+
+/**
+ * Transcribe an audio buffer using Google Gemini API.
+ * First tries Google's specialized gemini-3.5-transcribe model.
+ * Falls back to gemini-3.5-flash-lite if needed.
+ */
+async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
+  const ai = getGenAIClient()
+  if (!ai) throw new Error('No Gemini API key configured')
+
+  let mimeType = contentType.split(';')[0].trim().toLowerCase()
+  if (!mimeType || mimeType === 'application/octet-stream') mimeType = 'audio/webm'
+  const base64 = audioBuffer.toString('base64')
+
+  // 1. First attempt: Google dedicated speech-to-text model gemini-3.5-transcribe
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-3.5-transcribe',
+      contents: [
+        { inlineData: { mimeType, data: base64 } }
+      ]
+    })
+    const transcribed = res.candidates?.[0]?.content?.parts?.[0]?.audioTranscription?.text || res.text || ''
+    if (transcribed && transcribed.trim()) {
+      return transcribed.trim()
+    }
+  } catch (err) {
+    console.warn('[jarvis] gemini-3.5-transcribe warning, trying flash-lite:', err?.message || err)
+  }
+
+  // 2. Second attempt: gemini-3.5-flash-lite
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-3.5-flash-lite',
+      contents: [
+        { inlineData: { mimeType, data: base64 } },
+        'Transcribe the speech in this audio verbatim. Output ONLY the transcribed text without quotes, markdown, or commentary. If there is no intelligible speech, return an empty string.'
+      ]
+    })
+    const text = (res.text || '').trim()
+    if (/^(\[.*\]|<.*>)$/.test(text)) return ''
+    return text
+  } catch (err) {
+    console.error('[jarvis] gemini flash-lite transcribe failed:', err?.message || err)
+    return ''
+  }
+}
+
 const VOICE_ID = process.env.JARVIS_VOICE_ID ?? 'JBFqnCBsd6RMkjVDRZzb'
 
 /**
@@ -746,14 +808,16 @@ const handleRequest = async (req, res) => {
   }
 
   if (req.method === 'GET' && req.url === '/health') {
-    // The browser reads this once at boot to decide which voice engine to use.
-    // Both premium paths ride the same ElevenLabs key, so both flags track it:
-    // with a key the app transcribes with Scribe and speaks with ElevenLabs;
-    // without one it falls back to the browser's own recogniser and voice, so a
-    // student with nothing configured still has a working assistant.
     const eleven = Boolean(elevenKey())
+    const gemini = Boolean(geminiKey())
+    const stt = eleven || gemini
     res.writeHead(200, { ...cors, 'content-type': 'application/json' })
-    return res.end(JSON.stringify({ ok: true, tts: eleven, stt: eleven }))
+    return res.end(JSON.stringify({
+      ok: true,
+      tts: eleven,
+      stt,
+      sttEngine: gemini ? 'gemini' : (eleven ? 'elevenlabs' : 'browser')
+    }))
   }
 
   // Serve local image files to the page. Screenshots and generated art land on
@@ -1000,24 +1064,21 @@ const handleRequest = async (req, res) => {
   }
 
   // Speech to text. The browser captures one spoken segment as a compressed
-  // audio blob and posts the raw bytes here; the bridge hands them to
-  // ElevenLabs Scribe and returns the transcript. This is what replaced the
-  // browser's own SpeechRecognition — that API dies silently under always-on
-  // use, and a server-side transcriber cannot. Detecting that the user is
-  // speaking at all is done locally with voice-activity detection, which never
-  // touches this endpoint; this is only for the words.
+  // audio blob (or WAV) and posts the raw bytes here; the bridge hands them to
+  // ElevenLabs Scribe or Gemini STT and returns the transcript.
   if (req.method === 'POST' && req.url === '/stt') {
-    const key = elevenKey()
-    if (!key) {
+    const eleven = elevenKey()
+    const gemini = geminiKey()
+    if (!eleven && !gemini) {
       res.writeHead(503, cors)
-      return res.end('no elevenlabs key')
+      return res.end('no speech-to-text service configured (need ELEVENLABS_API_KEY or GEMINI_API_KEY)')
     }
 
     const type = req.headers['content-type'] || 'audio/webm'
     const chunks = []
     let size = 0
     let overflowed = false
-    // A few seconds of Opus is well under a megabyte; 25 MB is a generous
+    // A few seconds of audio is well under a megabyte; 25 MB is a generous
     // ceiling that still refuses a runaway stream before it eats the heap.
     for await (const chunk of req) {
       chunks.push(chunk)
@@ -1039,41 +1100,55 @@ const handleRequest = async (req, res) => {
       return res.end(JSON.stringify({ text: '' }))
     }
 
-    try {
-      // The filename extension is the only hint Scribe gets about the codec, so
-      // derive it from the content-type the MediaRecorder reported rather than
-      // hard-coding one.
-      const ext = type.includes('ogg')
-        ? 'ogg'
-        : type.includes('mp4') || type.includes('mpeg')
-          ? 'mp4'
-          : type.includes('wav')
-            ? 'wav'
-            : 'webm'
-      const form = new FormData()
-      form.append('model_id', 'scribe_v1')
-      form.append(
-        'file',
-        new Blob([Buffer.concat(chunks)], { type }),
-        `speech.${ext}`,
-      )
+    const audioBuffer = Buffer.concat(chunks)
 
-      const upstream = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
-        method: 'POST',
-        headers: { 'xi-api-key': key },
-        body: form,
-      })
-      if (!upstream.ok) {
-        res.writeHead(upstream.status, cors)
-        return res.end(await upstream.text())
+    // Route 1: ElevenLabs Scribe (if configured)
+    if (eleven) {
+      try {
+        const ext = type.includes('ogg')
+          ? 'ogg'
+          : type.includes('mp4') || type.includes('mpeg')
+            ? 'mp4'
+            : type.includes('wav')
+              ? 'wav'
+              : 'webm'
+        const form = new FormData()
+        form.append('model_id', 'scribe_v1')
+        form.append(
+          'file',
+          new Blob([audioBuffer], { type }),
+          `speech.${ext}`,
+        )
+
+        const upstream = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
+          method: 'POST',
+          headers: { 'xi-api-key': eleven },
+          body: form,
+        })
+        if (upstream.ok) {
+          const data = await upstream.json()
+          res.writeHead(200, { ...cors, 'content-type': 'application/json' })
+          return res.end(JSON.stringify({ text: (data.text ?? '').trim() }))
+        }
+      } catch (err) {
+        console.warn('[jarvis] elevenlabs scribe warning, trying fallback:', err?.message || err)
       }
-      const data = await upstream.json()
-      res.writeHead(200, { ...cors, 'content-type': 'application/json' })
-      return res.end(JSON.stringify({ text: (data.text ?? '').trim() }))
-    } catch (err) {
-      res.writeHead(502, cors)
-      return res.end(String(err?.message ?? err))
     }
+
+    // Route 2: Gemini STT (Fast, multimodal, high accuracy, supports English & Tamil/Tanglish)
+    if (gemini) {
+      try {
+        const text = await transcribeWithGemini(audioBuffer, type)
+        res.writeHead(200, { ...cors, 'content-type': 'application/json' })
+        return res.end(JSON.stringify({ text }))
+      } catch (err) {
+        res.writeHead(502, cors)
+        return res.end(String(err?.message ?? err))
+      }
+    }
+
+    res.writeHead(502, cors)
+    return res.end('Speech-to-text failed')
   }
 
   res.writeHead(404, cors)

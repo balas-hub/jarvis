@@ -406,8 +406,14 @@ export async function startVoice(h: VoiceHandlers): Promise<Voice> {
     )
     return { stop: () => {}, live: () => false }
   }
-  diag.engine = caps().stt ? 'elevenlabs' : 'browser'
-  return caps().stt ? startElevenVoice(h) : startBrowserVoice(h)
+  const isDesktop =
+    typeof window !== 'undefined' &&
+    (Boolean((window as any).jarvisDesktop) ||
+      /Electron/i.test(navigator?.userAgent || ''))
+  // If bridge STT is available OR we are running in Electron desktop app, use server STT + local VAD
+  const useServer = caps().stt || isDesktop
+  diag.engine = useServer ? (caps().stt ? 'server' : 'vad') : 'browser'
+  return useServer ? startElevenVoice(h) : startBrowserVoice(h)
 }
 
 /** VAD + ElevenLabs Scribe. */
@@ -778,6 +784,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
       touch()
     }
     rec.onresult = onResult
+    let networkErrorNotified = false
     rec.onerror = (ev: any) => {
       const err = String(ev.error ?? '')
       diag.lastError = err
@@ -786,7 +793,10 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
         diag.running = false
         h.onError('Microphone access was refused — voice input is unavailable.')
       } else if (err === 'network') {
-        h.onError('Speech Recognition Network Error: Chrome requires internet for voice recognition. Type below or press Enter.')
+        if (!networkErrorNotified) {
+          networkErrorNotified = true
+          h.onError('Chrome Speech Recognition network unavailable. Type below or press Enter.')
+        }
       } else if (err === 'no-speech') {
         // quiet interval
       } else {
@@ -799,7 +809,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
       touch()
       rec = null
       if (!stopped) {
-        const delay = diag.lastError === 'network' ? 3500 : 100
+        const delay = diag.lastError === 'network' ? 10000 : 100
         setTimeout(spin, delay)
       }
     }
