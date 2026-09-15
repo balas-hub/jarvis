@@ -28,7 +28,7 @@ declare global {
 
 const statusText: Record<Phase, string> = {
   offline: 'OFFLINE',
-  boot: 'INITIALISING',
+  boot: 'ASSEMBLING LATTICE',
   dormant: 'STANDBY — SAY “HEY JARVIS”',
   waking: 'ONLINE',
   listening: 'LISTENING',

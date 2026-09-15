@@ -240,7 +240,9 @@ type State = {
   expandedBlade: string | null
   /** JARVIS's control over his own appearance. UI_DEFAULTS == the stock look. */
   ui: UiState
-
+  /** 0..1 boot assembly progress for the holographic particle avatar. */
+  assembleProgress: number
+  setAssembleProgress: (p: number) => void
   setVoice: (v: string) => void
   setGestures: (on: boolean) => void
   setLooking: (why: string | null) => void
@@ -286,8 +288,10 @@ export const useStore = create<State>((set) => ({
   focusedBlade: null,
   expandedBlade: null,
   bootNote: '',
+  assembleProgress: 0,
   ui: defaultUi(),
 
+  setAssembleProgress: (assembleProgress) => set({ assembleProgress }),
   setVoice: (voice) => set({ voice }),
   setGestures: (gestures) => set({ gestures }),
   setLooking: (looking) => set({ looking }),
@@ -417,14 +421,14 @@ export const useStore = create<State>((set) => ({
 
 /** Colour identity per phase — shared by the 3D scene and the 2D HUD. */
 export const phaseColor: Record<Phase, string> = {
-  offline: '#0d4a4a',
-  boot: '#17b3b3',
-  dormant: '#12908f',
-  waking: '#5cf2ef',
-  listening: '#19d8d2',
-  thinking: '#f0a93c',
-  tooling: '#a97bff',
-  speaking: '#3ef2a8',
+  offline: '#041f28',
+  boot: '#00f0ff',
+  dormant: '#00d4ff',
+  waking: '#38f8ff',
+  listening: '#00f0ff',
+  thinking: '#ffb703',
+  tooling: '#a855f7',
+  speaking: '#ff9e00',
 }
 
 /**

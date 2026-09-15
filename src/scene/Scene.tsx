@@ -10,6 +10,7 @@ import {
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import { Core } from './Core'
+import { HoloAvatar } from './HoloAvatar'
 import { Particles } from './Particles'
 import { Orbits } from './Orbits'
 import { useStore, phaseColor, accentFor, type Phase } from '../store'
@@ -204,7 +205,8 @@ function Rig() {
   // subject is one unbroken one.
   return (
     <>
-      <Core drive={drive} />
+      <HoloAvatar drive={drive} />
+      {drive.reactor.visible && drive.reactor.style !== 0 && <Core drive={drive} />}
       <Particles drive={drive} />
       <Orbits />
     </>
@@ -215,7 +217,7 @@ export function Scene() {
   return (
     <Canvas
       className="scene"
-      camera={{ position: [0, 0, 6.2], fov: 45 }}
+      camera={{ position: [0, 0, 5.8], fov: 45 }}
       gl={{ antialias: true, alpha: true }}
       dpr={[1, 2]}
     >
@@ -238,13 +240,13 @@ export function Scene() {
       <EffectComposer multisampling={0}>
         {/* Bloom is what turns additive lines into "hologram". */}
         <Bloom
-          intensity={1.15}
+          intensity={1.35}
           // A higher threshold keeps the mid-tones intact so the orb doesn't
           // flatten into a solid white disc.
-          luminanceThreshold={0.22}
-          luminanceSmoothing={0.85}
+          luminanceThreshold={0.18}
+          luminanceSmoothing={0.88}
           mipmapBlur
-          radius={0.72}
+          radius={0.78}
         />
         <ChromaticAberration
           offset={new THREE.Vector2(0.0009, 0.0012)}
