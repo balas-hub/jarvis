@@ -53,26 +53,39 @@ export type Vad = {
 }
 
 // ---------------------------------------------------------------------------
-// Tuning — Google Voice Search Calibrated VAD
+// Tuning
 // ---------------------------------------------------------------------------
 
+/** How far above the noise floor the signal must rise to count as speech.
+ *  The floor tracks the room, so this is a ratio, not an absolute level. */
+const TRIGGER_OVER_FLOOR = 2.6
 /** While he is speaking, demand this much more, so residual echo is ignored. */
 const GUARD_BOOST = 2.4
 /** Falling back below trigger×this ends the segment. Hysteresis stops a single
  *  dip mid-word from cutting a sentence in half. */
 const RELEASE_RATIO = 0.6
 
-/** Minimum duration of authentic human speech in milliseconds (400ms).
- *  Sub-400ms sounds (coughs, sneezes, clicks, throat clearing, taps) are discarded before STT. */
-const MIN_UTTERANCE_MS = 400
-
-/** Sustained vocal energy for 200ms confirms speech rather than a transient tap, click, or cough. */
-const START_MS = 200
+/** Sustained energy for this long confirms speech rather than a knock or click. */
+const START_MS = 110
+/**
+ * Quiet for this long ends the SEGMENT — which is no longer the same thing as
+ * ending the turn.
+ *
+ * It used to be both, which is why this number was impossible to set: long
+ * enough not to clip someone thinking mid-sentence meant every completed
+ * question also sat waiting for nothing. Deciding whether the thought is
+ * actually finished now happens a layer up, on the words rather than the
+ * energy (see makeAssembler in voice.ts), so this can go back to being what it
+ * should always have been — a cheap "have they stopped making noise" — and the
+ * shorter window gets the transcript moving sooner.
+ */
+const SILENCE_MS = 650
 /** Nobody speaks one segment for this long; cut it and transcribe what we have. */
 const MAX_MS = 20000
 
-/** The floor adapts smoothly to room ambient noise within 1-2 seconds rather than lagging. */
-const FLOOR_UP = 0.0035
+/** The floor adapts slowly upward (a fan spinning up) and quickly downward (a
+ *  door closing), so it settles to genuine ambient noise without chasing speech. */
+const FLOOR_UP = 0.0008
 const FLOOR_DOWN = 0.02
 
 function pickMime(): string {
@@ -124,36 +137,19 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
 
   const mime = pickMime()
   const ctx = new AudioContext()
+  // Some browsers start an AudioContext suspended even after a gesture; resume
+  // is a no-op when it is already running.
   void ctx.resume()
   const source = ctx.createMediaStreamSource(stream)
-
-  // Google Voice Search Vocal Bandpass Filter:
-  // Isolates authentic human vocal formant band (160Hz - 3800Hz)
-  // Strips DC offset, table knocks, air currents, breathing pops (<160Hz)
-  // Strips keyboard clicks, mouse snaps, high-frequency hiss (>3800Hz)
-  const highpass = ctx.createBiquadFilter()
-  highpass.type = 'highpass'
-  highpass.frequency.value = 160
-  highpass.Q.value = 0.7
-
-  const lowpass = ctx.createBiquadFilter()
-  lowpass.type = 'lowpass'
-  lowpass.frequency.value = 3800
-  lowpass.Q.value = 0.7
-
-  source.connect(highpass)
-  highpass.connect(lowpass)
-
   const analyser = ctx.createAnalyser()
   analyser.fftSize = 1024
   analyser.smoothingTimeConstant = 0.35
-  lowpass.connect(analyser)
+  source.connect(analyser)
   const buf = new Float32Array(analyser.fftSize)
 
   let stopped = false
   let guard = false
   let isMuted = false
-  let voiceIsolation = true
   let floor = 0.01
   let smoothEnergy = 0
   let threshold = 0
@@ -177,9 +173,7 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
   const startRecorder = () => {
     parts = []
     try {
-      recorder = mime
-        ? new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 24000 })
-        : new MediaRecorder(stream)
+      recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream)
     } catch {
       recorder = new MediaRecorder(stream)
     }
@@ -214,10 +208,6 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
       const blob = new Blob(parts, { type })
       parts = []
       const ms = startedAt ? performance.now() - startedAt : 0
-      // Ignore sub-400ms sounds (coughs, mic bumps, clicks, throat clearing)
-      if (ms < MIN_UTTERANCE_MS) {
-        return
-      }
       h.onEnd(blob, ms)
     }
     rec.onstop = finalise
@@ -233,7 +223,6 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     if (stopped) return
     raf = requestAnimationFrame(tick)
 
-    // While microphone is muted, cancel recording and ignore input
     if (isMuted) {
       if (speaking || armedAt !== 0) {
         armedAt = 0
@@ -251,33 +240,30 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     if (!speaking && armedAt === 0) {
       const rate = smoothEnergy > floor ? FLOOR_UP : FLOOR_DOWN
       floor += (smoothEnergy - floor) * rate
-      floor = Math.max(floor, 0.003)
+      floor = Math.max(floor, 0.0015)
     }
 
-    // Voice Isolation Gate:
-    // When enabled, demands near-field primary speaker loudness (0.028) and higher relative rise (3.6x),
-    // strictly rejecting far-field chatter, secondary voices in the room, distant TV, and ambient noise.
-    const triggerRatio = voiceIsolation ? 3.6 : 3.0
-    const minSpeech = voiceIsolation ? 0.028 : 0.016
-    const calcThreshold = floor * triggerRatio * (guard ? GUARD_BOOST : 1)
-    threshold = Math.max(calcThreshold, minSpeech * (guard ? GUARD_BOOST : 1))
+    threshold = floor * TRIGGER_OVER_FLOOR * (guard ? GUARD_BOOST : 1)
     const release = threshold * RELEASE_RATIO
     const now = performance.now()
 
     if (!speaking) {
       if (smoothEnergy > threshold) {
         if (armedAt === 0) {
+          // Onset: start recording immediately so the first phoneme is captured,
+          // before we have even confirmed this is speech. If it turns out to be
+          // a blip, the recorder is discarded and nothing was lost.
           armedAt = now
           startRecorder()
-        } else if (now - armedAt >= (voiceIsolation ? 160 : START_MS)) {
-          // Confirmed primary speaker speech
+        } else if (now - armedAt >= START_MS) {
+          // Confirmed. This is the moment barge-in fires.
           speaking = true
           speechStartedAt = armedAt
           lastLoud = now
           h.onStart()
         }
       } else if (armedAt !== 0) {
-        // Rose and fell without confirming — a transient knock or click
+        // Rose and fell without confirming — a knock, a click, a lip smack.
         armedAt = 0
         discardRecorder()
       }
@@ -285,9 +271,7 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
       if (smoothEnergy > release) lastLoud = now
       const quietFor = now - lastLoud
       const runFor = now - speechStartedAt
-      // Adaptive low-latency endpointing: 340ms after sustained speech, 460ms for shorter words
-      const targetSilence = runFor > 600 ? 340 : 460
-      if (quietFor >= targetSilence || runFor >= MAX_MS) {
+      if (quietFor >= SILENCE_MS || runFor >= MAX_MS) {
         armedAt = 0
         endSegment()
       }
@@ -303,8 +287,6 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
       discardRecorder()
       try {
         source.disconnect()
-        highpass.disconnect()
-        lowpass.disconnect()
         void ctx.close()
       } catch {
         /* noop */
@@ -321,9 +303,7 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
         discardRecorder()
       }
     },
-    setVoiceIsolation: (on) => {
-      voiceIsolation = on
-    },
+    setVoiceIsolation: () => {},
     live: () => !stopped,
     meter: () => ({ energy: smoothEnergy, floor, threshold, speaking }),
   }

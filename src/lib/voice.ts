@@ -1,6 +1,6 @@
 import { BRIDGE_HTTP_URL } from '../config'
 import { getMic } from './audio'
-import { speakingNow, speakingSince } from './tts'
+import { speakingNow, speakingSince, getActiveProfile } from './tts'
 import { startVad, type Vad } from './vad'
 import { caps } from './capabilities'
 
@@ -64,7 +64,7 @@ export type Voice = {
 // ---------------------------------------------------------------------------
 
 /** One utterance often produces several partials containing his name. */
-const WAKE_DEBOUNCE = 1200
+const WAKE_DEBOUNCE = 1500
 
 export const STT_LANG_KEY = 'jarvis.stt_lang'
 
@@ -84,10 +84,10 @@ export function setSttLang(lang: string): void {
 
 /**
  * His name, and the only wake phrase.
- * Robust regex supporting English, Indian English accents, mis-recognitions, and Tamil.
+ * Supports English and Tamil wake variations.
  */
-export const WAKE =
-  /(?:(?:\b(?:hey|hi|hello|ok|okay|yo|listen|wake\s+up|please|mr|mister)\s+)?\b(?:jarvis|jarvys|jervis|jarvis's|travis|javis|java's|jarv|service|starvis|charvis|harvest|jarvi|java|jarves)\b(?!'s)|(?:(?:ஹே|ஹேய்|ஏய்|வணக்கம்|ஹலோ|சொல்லு|கேளு)\s+)?(?:ஜார்விஸ்|சார்விஸ்|ஜார்வீஸ்|ஜார்விச|ஜார்வி|ஜார்வீசு))/i
+const WAKE =
+  /(?:(?:\b(?:hey|hi|ok|okay|yo)\s+)?\b(?:jarvis|jarvys|jervis|jarvis's|travis|jarviss|java's|jarv)\b(?!'s)|(?:(?:ஹே|ஹேய்|ஏய்)\s+)?(?:ஜார்விஸ்|சார்விஸ்|ஜார்வீஸ்|ஜார்விச|ஜார்வி))/i
 
 /** Everything after the wake phrase, which is usually the actual command. */
 function afterWake(text: string): string {
@@ -161,7 +161,7 @@ const SELF_GUARD_MS = 350
  * more clause. Making it generous here is what would make every ordinary
  * question feel slow.
  */
-const SETTLE_MS = 80
+const SETTLE_MS = 250
 /** ...and this long when the sentence is plainly unfinished. */
 const CONTINUE_MS = 1600
 /**
@@ -182,41 +182,9 @@ function holdFor(text: string): number {
   if (/[.!?]$/.test(text)) return 0
   if (TRAILS.test(text.trim())) return CONTINUE_MS
   if (CONTINUES.test(words[words.length - 1])) return CONTINUE_MS
-
-  // Standalone single-word directives that are naturally complete on their own
-  const STANDALONE_1WORD =
-    /^(stop|pause|resume|mute|unmute|cancel|screenshot|lock|sleep|restart|shutdown|hello|hi|hey|yes|no)$/i
-
-  // Transitive verbs that require an object (e.g. "open chrome", "send a message")
-  // If only 1 word was said ("open"), do NOT fire immediately — the user is still speaking!
-  const TRANSITIVE_STARTERS =
-    /^(open|close|play|turn|switch|set|type|click|run|send|message|call|google|youtube|spotify|change|show|launch|start|write|read)$/i
-
-  // Question starters that require a body (e.g. "what time is it", "how are you")
-  const QUESTION_STARTERS =
-    /^(what|whats|what's|how|hows|how's|who|where|when|why|tell|explain)$/i
-
-  const firstWord = (words[0] || '').toLowerCase()
-
-  if (words.length === 1) {
-    if (STANDALONE_1WORD.test(firstWord)) return 0
-    if (TRANSITIVE_STARTERS.test(firstWord) || QUESTION_STARTERS.test(firstWord)) {
-      return CONTINUE_MS // Wait for the rest of the sentence
-    }
-    return 600
-  }
-
-  // Multi-word commands & questions: if >= 2 words, fire with 0ms delay!
-  if (TRANSITIVE_STARTERS.test(firstWord) || QUESTION_STARTERS.test(firstWord) || STANDALONE_1WORD.test(firstWord)) {
-    return 0
-  }
-
-  // Fast-settle for action commands, overrides, Tamil phrases
-  if (OVERRIDE.test(text) || /[\u0B80-\u0BFF]/.test(text)) return 0
-
-  // Multi-word complete thoughts: fire immediately
-  if (words.length >= 2) return 0
-
+  // One or two words is usually the start of something, not the whole of it —
+  // except for the short commands that genuinely are complete.
+  if (words.length <= 2 && !OVERRIDE.test(text)) return CONTINUE_MS
   return SETTLE_MS
 }
 
@@ -440,14 +408,8 @@ export async function startVoice(h: VoiceHandlers): Promise<Voice> {
     )
     return { stop: () => {}, setMuted: () => {}, setVoiceIsolation: () => {}, live: () => false }
   }
-  const isDesktop =
-    typeof window !== 'undefined' &&
-    (Boolean((window as any).jarvisDesktop) ||
-      /Electron/i.test(navigator?.userAgent || ''))
-  // If bridge STT is available OR we are running in Electron desktop app, use server STT + local VAD
-  const useServer = caps().stt || isDesktop
-  diag.engine = useServer ? (caps().stt ? 'server' : 'vad') : 'browser'
-  return useServer ? startElevenVoice(h) : startBrowserVoice(h)
+  diag.engine = caps().stt ? 'elevenlabs' : 'browser'
+  return caps().stt ? startElevenVoice(h) : startBrowserVoice(h)
 }
 
 /** VAD + ElevenLabs Scribe. */
@@ -734,17 +696,20 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     assemble.feed(text, false)
   }
 
+  let isMuted = false
+
   const bumpSilence = () => {
     clearSilence()
-    // Endpoint on a short quiet gap; 550ms provides prompt, natural turns without cut-offs.
-    silenceTimer = setTimeout(emit, 550)
+    // Endpoint on a short quiet gap; the ElevenLabs path tunes this more
+    // finely, but a fixed window is plenty for the fallback.
+    silenceTimer = setTimeout(emit, 900)
   }
 
   const onResult = (e: any) => {
     touch()
     const mode = h.mode()
     diag.mode = mode
-    if (mode === 'deaf') {
+    if (mode === 'deaf' || isMuted) {
       interim = ''
       return
     }
@@ -752,12 +717,10 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     interim = ''
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const chunk = e.results[i][0].transcript as string
-      if (e.results[i].isFinal) fresh += chunk + ' '
-      else interim += chunk + ' '
+      if (e.results[i].isFinal) fresh += chunk
+      else interim += chunk
     }
-    fresh = fresh.trim()
-    interim = interim.trim()
-    const heard = `${settled} ${fresh} ${interim}`.replace(/\s+/g, ' ').trim()
+    const heard = `${settled}${fresh} ${interim}`.replace(/\s+/g, ' ').trim()
     if (!heard) return
     if (isEcho(`${fresh} ${interim}`, speakingNow())) {
       interim = ''
@@ -765,20 +728,20 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     }
 
     if (mode === 'wake') {
-      if (fresh) settled = `${settled} ${fresh}`.replace(/\s+/g, ' ').trim()
+      settled += fresh
       if (WAKE.test(heard) && Date.now() - lastWake > WAKE_DEBOUNCE) {
         lastWake = Date.now()
         diag.wakes++
         const trailing = afterWake(heard)
         reset()
         h.onWake(trailing)
-      } else if (settled.length > 250) {
-        settled = settled.slice(-100)
+      } else if (settled.length > 400) {
+        settled = ''
       }
       return
     }
 
-    if (fresh) settled = `${settled} ${fresh}`.replace(/\s+/g, ' ').trim()
+    settled += fresh
     const full = `${settled} ${interim}`.replace(/\s+/g, ' ').trim()
     if (!started || (mode === 'guard' && !barged)) {
       const words = full.split(/\s+/).filter(Boolean).length
@@ -819,8 +782,8 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     rec = new Ctor()
     rec.continuous = true
     rec.interimResults = true
-    // Configurable Speech Recognition Language (defaulting to en-IN for optimal English + Tanglish recognition)
-    rec.lang = getSttLang()
+    const profile = getActiveProfile()
+    rec.lang = profile.lang === 'ta-IN' ? 'ta-IN' : 'en-US'
     rec.onstart = () => {
       running = true
       diag.running = true
@@ -828,23 +791,12 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
       touch()
     }
     rec.onresult = onResult
-    let networkErrorNotified = false
     rec.onerror = (ev: any) => {
-      const err = String(ev.error ?? '')
-      diag.lastError = err
-      if (err === 'not-allowed' || err === 'service-not-allowed') {
+      diag.lastError = String(ev.error ?? '')
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
         stopped = true
         diag.running = false
         h.onError('Microphone access was refused — voice input is unavailable.')
-      } else if (err === 'network') {
-        if (!networkErrorNotified) {
-          networkErrorNotified = true
-          h.onError('Chrome Speech Recognition network unavailable. Type below or press Enter.')
-        }
-      } else if (err === 'no-speech') {
-        // quiet interval
-      } else {
-        console.warn('[jarvis] speech recognition error:', err)
       }
     }
     rec.onend = () => {
@@ -852,10 +804,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
       diag.running = false
       touch()
       rec = null
-      if (!stopped) {
-        const delay = diag.lastError === 'network' ? 10000 : 100
-        setTimeout(spin, delay)
-      }
+      if (!stopped) setTimeout(spin, 80)
     }
     try {
       rec.start()
@@ -866,26 +815,6 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
   }
 
   spin()
-
-  // Dynamically update speech recognition when user switches active voice profile or STT language
-  const onVoiceChange = () => {
-    if (stopped) return
-    console.log('[jarvis] voice profile or STT language changed — refreshing recogniser')
-    try {
-      rec?.abort()
-    } catch {
-      /* noop */
-    }
-    rec = null
-    running = false
-    diag.running = false
-    touch()
-    spin()
-  }
-  if (typeof window !== 'undefined') {
-    window.addEventListener('jarvis:voice_changed', onVoiceChange)
-    window.addEventListener('jarvis:stt_lang_changed', onVoiceChange)
-  }
 
   // The heartbeat. If nothing has been heard from the engine for a while it has
   // gone quiet on us — tear it down and build a fresh one.
@@ -910,9 +839,6 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
   return {
     stop: () => {
       stopped = true
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('jarvis:voice_changed', onVoiceChange)
-      }
       clearInterval(health)
       clearSilence()
       assemble.cancel()
@@ -923,8 +849,14 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
         /* noop */
       }
     },
-    setMuted: (_m: boolean) => {},
-    setVoiceIsolation: (_on: boolean) => {},
+    setMuted: (m: boolean) => {
+      isMuted = m
+      if (m) {
+        reset()
+        assemble.cancel()
+      }
+    },
+    setVoiceIsolation: () => {},
     live: () => running,
   }
 }

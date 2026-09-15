@@ -135,32 +135,29 @@ function findAppBrowser() {
   return null
 }
 
-console.log('\nStarting J.A.R.V.I.S. Native Desktop Application...\n')
+if (appMode) {
+  console.log('\nStarting J.A.R.V.I.S. Desktop System Application...\n')
+  const browser = findAppBrowser()
+  const targetUrl = `http://localhost:${port || 5173}`
+  const profileDir = `${process.env.LOCALAPPDATA || '.'}\\JARVIS-App-Data`
 
-const electronBin = existsSync('node_modules/electron/dist/electron.exe')
-  ? 'node_modules/electron/dist/electron.exe'
-  : (existsSync('node_modules/.bin/electron.cmd') ? 'node_modules/.bin/electron.cmd' : null)
-
-setTimeout(() => {
-  if (electronBin) {
-    console.log('  launching native desktop application (with background tray & hotkeys)...\n')
-    run('app', electronBin, ['electron/main.cjs'], '32', {})
-  } else {
-    const browser = findAppBrowser()
-    const targetUrl = `http://localhost:${port || 5173}`
+  setTimeout(() => {
     if (browser) {
-      console.log('  launching desktop window...\n')
+      console.log(`  launching dedicated desktop system window...\n`)
       run('app', browser, [
         `--app=${targetUrl}`,
-        '--window-size=1440,920',
+        '--window-size=1400,900',
+        `--user-data-dir=${profileDir}`,
         '--autoplay-policy=no-user-gesture-required',
         '--enable-webgl',
-        '--use-fake-ui-for-media-stream',
-        '--enable-speech-dispatcher',
-        '--enable-features=SpeechRecognition,MediaStreamTrack',
       ], '32', {})
     } else {
       run('app', 'cmd', ['/c', 'start', targetUrl], '32', {})
     }
-  }
-}, 2200)
+  }, 2200)
+} else {
+  console.log(
+    '\nWhen it says the dev server is ready, open the URL it prints in Chrome,\n' +
+      'click INITIALISE, and say "Hey Jarvis". Ctrl-C stops everything.\n',
+  )
+}

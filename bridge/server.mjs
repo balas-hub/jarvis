@@ -864,15 +864,8 @@ const handleRequest = async (req, res) => {
 
   if (req.method === 'GET' && req.url === '/health') {
     const eleven = Boolean(elevenKey())
-    const gemini = Boolean(geminiKey())
-    const stt = eleven || gemini
     res.writeHead(200, { ...cors, 'content-type': 'application/json' })
-    return res.end(JSON.stringify({
-      ok: true,
-      tts: eleven,
-      stt,
-      sttEngine: gemini ? 'gemini' : (eleven ? 'elevenlabs' : 'browser')
-    }))
+    return res.end(JSON.stringify({ ok: true, tts: eleven, stt: eleven }))
   }
 
   // Serve local image files to the page. Screenshots and generated art land on
