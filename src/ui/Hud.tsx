@@ -8,23 +8,7 @@ import { Pointer } from './Pointer'
 import { GestureGuide } from './GestureGuide'
 import { VoiceModal } from './VoiceModal'
 import { getActiveProfile } from '../lib/tts'
-import { getSttLang, setSttLang } from '../lib/voice'
 import * as hands from '../lib/hands'
-
-interface JarvisDesktop {
-  isDesktop: boolean
-  minimize: () => void
-  maximize: () => void
-  hideToTray: () => void
-  quit: () => void
-  summon: () => void
-}
-
-declare global {
-  interface Window {
-    jarvisDesktop?: JarvisDesktop
-  }
-}
 
 const statusText: Record<Phase, string> = {
   offline: 'OFFLINE',
@@ -179,7 +163,6 @@ export function Hud() {
   const looking = useStore((s) => s.looking)
   const ui = useStore((s) => s.ui)
   const muted = useStore((s) => s.muted)
-  const voiceIsolation = useStore((s) => s.voiceIsolation)
 
   // accentFor folds JARVIS's overrides in over the phase colour, so one
   // variable on the root carries a theme change into every .hud-* rule without
@@ -189,7 +172,6 @@ export function Hud() {
   const [showVoiceModal, setShowVoiceModal] = useState(false)
   const [activeProfileState, setActiveProfileState] = useState(getActiveProfile())
   const [inputText, setInputText] = useState('')
-  const [sttLang, setSttLangState] = useState<string>(getSttLang())
 
   useEffect(() => {
     setActiveProfileState(getActiveProfile())
@@ -201,16 +183,6 @@ export function Hud() {
     if (!trimmed) return
     setInputText('')
     window.dispatchEvent(new CustomEvent('jarvis:send_command', { detail: trimmed }))
-  }
-
-  const handleTriggerTalk = () => {
-    window.dispatchEvent(new CustomEvent('jarvis:trigger_talk'))
-  }
-
-  const handleToggleLang = () => {
-    const next = sttLang === 'ta-IN' ? 'en-IN' : 'ta-IN'
-    setSttLang(next)
-    setSttLangState(next)
   }
 
   const toggleGestures = () => {
@@ -278,41 +250,6 @@ export function Hud() {
                 ? 'MUTED — LISTENING OFF (PRESS M)'
                 : statusText[phase]}
           </span>
-        </div>
-
-        <div className="hud-top-right">
-          <span className="hud-engine-tag" title="Primary Intelligence: Google Gemini 3.5 Flash">
-            <span className="engine-pulse" />
-            GEMINI 3.5 FLASH
-          </span>
-          {typeof window !== 'undefined' && window.jarvisDesktop?.isDesktop && (
-            <div className="hud-window-controls">
-              <button
-                type="button"
-                className="hud-win-btn"
-                title="Minimize window"
-                onClick={() => window.jarvisDesktop?.minimize()}
-              >
-                —
-              </button>
-              <button
-                type="button"
-                className="hud-win-btn"
-                title="Maximize / Restore window"
-                onClick={() => window.jarvisDesktop?.maximize()}
-              >
-                ▢
-              </button>
-              <button
-                type="button"
-                className="hud-win-btn hud-win-close"
-                title="Hide to System Tray (runs in background)"
-                onClick={() => window.jarvisDesktop?.hideToTray()}
-              >
-                ✕
-              </button>
-            </div>
-          )}
         </div>
       </header>
 
@@ -447,68 +384,21 @@ export function Hud() {
             className="hud-cmd-input"
             placeholder={
               phase === 'listening'
-                ? 'Listening to voice... (or type any command & press Enter)'
-                : "Type a command (e.g. 'system status', 'open youtube') or click TALK..."
+                ? 'Listening to voice...'
+                : "Type a command or say “Hey Jarvis”..."
             }
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
           />
-          <button
-            type="submit"
-            className="hud-cmd-send"
-            title="Execute command on PC (Enter)"
-            disabled={!inputText.trim()}
-          >
-            EXECUTE
-          </button>
-          <button
-            type="button"
-            className={`hud-cmd-mic ${phase === 'listening' ? 'pulsing' : ''}`}
-            onClick={handleTriggerTalk}
-            title={muted ? 'Click to unmute & talk (or press Space)' : 'Click to talk (or press Space)'}
-          >
-            {phase === 'listening' ? '🔴 LISTENING' : muted ? '🎙️ UNMUTE & TALK' : '🎙️ TALK'}
-          </button>
-          <button
-            type="button"
-            className={`hud-cmd-mute ${muted ? 'muted' : ''}`}
-            onClick={() => {
-              const next = !muted
-              useStore.getState().setMuted(next)
-              window.dispatchEvent(new CustomEvent('jarvis:toggle_mute'))
-            }}
-            title={
-              muted
-                ? 'Microphone muted / listening paused. Click to unmute (or press M)'
-                : 'Stop listening / Mute microphone (or press M)'
-            }
-          >
-            {muted ? '🔇 MUTED' : '🎤 MUTE'}
-          </button>
-          <button
-            type="button"
-            className={`hud-cmd-iso ${voiceIsolation ? 'active' : ''}`}
-            onClick={() => {
-              const next = !voiceIsolation
-              useStore.getState().setVoiceIsolation(next)
-              window.dispatchEvent(new CustomEvent('jarvis:toggle_isolation'))
-            }}
-            title={
-              voiceIsolation
-                ? 'Voice Isolation: ACTIVE (strictly filtering background voices & noise). Click to turn off (or press I)'
-                : 'Voice Isolation: OFF. Click to filter background chatter & noise (or press I)'
-            }
-          >
-            {voiceIsolation ? '🛡️ ISO: ON' : '🛡️ ISO: OFF'}
-          </button>
-          <button
-            type="button"
-            className="hud-cmd-lang"
-            onClick={handleToggleLang}
-            title={`Speech recognition language: ${sttLang === 'ta-IN' ? 'Tamil' : 'English (India)'}. Click to toggle.`}
-          >
-            LANG: {sttLang === 'ta-IN' ? 'TA' : 'EN'}
-          </button>
+          {inputText.trim() && (
+            <button
+              type="submit"
+              className="hud-cmd-send"
+              title="Execute command on PC (Enter)"
+            >
+              EXECUTE ↵
+            </button>
+          )}
         </form>
 
         <div className="hud-controls">
@@ -536,7 +426,7 @@ export function Hud() {
         </div>
         <div className="hud-hint-bar">
           <span className="hint">
-            say <b>“hey jarvis”</b> · <kbd>Space</kbd> talk · <kbd>M</kbd> {muted ? 'unmute' : 'mute'} · <kbd>I</kbd> isolation: {voiceIsolation ? 'ON' : 'OFF'} · <kbd>Ctrl+Shift+J</kbd> summon / hide
+            say <b>“hey jarvis”</b> · <kbd>Space</kbd> talk · <kbd>Enter</kbd> send · <kbd>M</kbd> {muted ? 'unmute' : 'mute'}
             {voice && (
               <>
                 {' · '}

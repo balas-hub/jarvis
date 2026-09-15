@@ -126,74 +126,7 @@ body::after {
   50% { opacity: 0.35; transform: scale(0.75); }
 }
 
-.hud-top-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-left: 20px;
-}
 
-.hud-engine-tag {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 8px;
-  letter-spacing: 0.22em;
-  color: color-mix(in srgb, var(--accent) 85%, white);
-  background: color-mix(in srgb, var(--accent) 12%, rgba(2, 10, 16, 0.7));
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 2px;
-  padding: 4px 10px;
-  backdrop-filter: blur(8px);
-  user-select: none;
-  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 15%, transparent);
-}
-
-.engine-pulse {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-  animation: pulse 1.5s infinite alternate;
-}
-
-.hud-window-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  pointer-events: auto;
-}
-
-.hud-win-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  color: color-mix(in srgb, var(--accent) 80%, white);
-  border-radius: 2px;
-  width: 24px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-
-.hud-win-btn:hover {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 12px var(--accent);
-}
-
-.hud-win-close:hover {
-  background: rgba(239, 68, 68, 0.55);
-  border-color: #ef4444;
-  color: #fff;
-  box-shadow: 0 0 12px #ef4444;
-}
 
 /* Side rails */
 
@@ -474,13 +407,13 @@ body::after {
   display: flex;
   align-items: center;
   gap: 8px;
-  width: min(720px, 86vw);
-  background: color-mix(in srgb, var(--accent) 12%, rgba(4, 12, 18, 0.88));
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  width: min(580px, 82vw);
+  background: color-mix(in srgb, var(--accent) 8%, rgba(4, 12, 18, 0.78));
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
   border-radius: 4px;
-  padding: 6px 12px;
+  padding: 6px 14px;
   backdrop-filter: blur(12px);
-  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 25%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 15%, transparent);
   pointer-events: auto;
   transition: all 200ms ease;
   margin-bottom: 4px;
@@ -488,12 +421,12 @@ body::after {
 
 .hud-cmd-bar:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 32px color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .hud-cmd-prompt {
   color: var(--accent);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: bold;
   user-select: none;
 }
@@ -511,17 +444,17 @@ body::after {
 }
 
 .hud-cmd-input::placeholder {
-  color: color-mix(in srgb, var(--accent) 40%, rgba(255, 255, 255, 0.4));
+  color: color-mix(in srgb, var(--accent) 35%, rgba(255, 255, 255, 0.35));
   font-size: 11px;
   letter-spacing: 0.06em;
 }
 
 .hud-cmd-send {
-  background: color-mix(in srgb, var(--accent) 25%, rgba(255, 255, 255, 0.05));
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
-  color: #fff;
+  background: color-mix(in srgb, var(--accent) 22%, rgba(255, 255, 255, 0.05));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  color: color-mix(in srgb, var(--accent) 95%, white);
   border-radius: 2px;
-  padding: 5px 12px;
+  padding: 4px 10px;
   font-family: inherit;
   font-size: 9px;
   letter-spacing: 0.15em;
@@ -529,124 +462,10 @@ body::after {
   transition: all 150ms ease;
 }
 
-.hud-cmd-send:hover:not(:disabled) {
+.hud-cmd-send:hover {
   background: var(--accent);
   color: #02080c;
-  box-shadow: 0 0 16px var(--accent);
-}
-
-.hud-cmd-send:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.hud-cmd-mic {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  color: color-mix(in srgb, var(--accent) 90%, white);
-  border-radius: 2px;
-  padding: 5px 10px;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: all 150ms ease;
-}
-
-.hud-cmd-mic:hover {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-  border-color: var(--accent);
-}
-
-.hud-cmd-mic.pulsing {
-  background: rgba(255, 60, 60, 0.35);
-  border-color: #ff4d4d;
-  color: #fff;
-  box-shadow: 0 0 16px rgba(255, 60, 60, 0.6);
-  animation: micPulse 1.2s infinite alternate;
-}
-
-@keyframes micPulse {
-  from { opacity: 0.75; }
-  to { opacity: 1; transform: scale(1.02); }
-}
-
-.hud-cmd-lang {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  color: color-mix(in srgb, var(--accent) 85%, white);
-  border-radius: 2px;
-  padding: 5px 8px;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-
-.hud-cmd-lang:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  border-color: var(--accent);
-}
-
-.hud-cmd-mute {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  color: color-mix(in srgb, var(--accent) 85%, white);
-  border-radius: 2px;
-  padding: 5px 8px;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 150ms ease;
-}
-
-.hud-cmd-mute:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  border-color: var(--accent);
-}
-
-.hud-cmd-mute.muted {
-  background: rgba(255, 75, 75, 0.25);
-  border-color: #ff4d4d;
-  color: #ff8080;
-  box-shadow: 0 0 12px rgba(255, 75, 75, 0.5);
-  animation: micPulse 1.8s infinite alternate;
-}
-
-.hud-cmd-iso {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  color: color-mix(in srgb, var(--accent) 85%, white);
-  border-radius: 2px;
-  padding: 5px 8px;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 150ms ease;
-}
-
-.hud-cmd-iso:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  border-color: var(--accent);
-}
-
-.hud-cmd-iso.active {
-  background: color-mix(in srgb, var(--accent) 25%, transparent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
+  box-shadow: 0 0 14px var(--accent);
 }
 
 .hud-controls {
