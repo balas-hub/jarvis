@@ -129,7 +129,7 @@ export type UiState = {
     intensity: number
     /** Rotation-rate multiplier. 0 .. 5, default 1. */
     spin: number
-    style: 'ring' | 'sphere' | 'wire'
+    style: 'ring' | 'sphere' | 'wire' | 'humanoid'
     visible: boolean
   }
   orbits: OrbitObject[]
@@ -145,7 +145,7 @@ export type UiState = {
 
 export const UI_DEFAULTS: UiState = {
   accent: null, background: null, palette: {},
-  reactor: { color: null, scale: 1, intensity: 1, spin: 1, style: 'ring', visible: true },
+  reactor: { color: null, scale: 1, intensity: 1, spin: 1, style: 'humanoid', visible: true },
   orbits: [],
   chrome: { systems: true, transcript: true, toolBadge: true, suggestions: true, brand: true },
   effect: null,
@@ -238,15 +238,19 @@ type State = {
   focusedBlade: string | null
   /** A blade thrown to full screen, or null. */
   expandedBlade: string | null
+  /** 0 to 100 assembling progress for the humanoid avatar */
+  assembleProgress: number
+  /** Monotonic counter to trigger re-assembly */
+  assembleTrigger: number
   /** JARVIS's control over his own appearance. UI_DEFAULTS == the stock look. */
   ui: UiState
-  /** 0..1 boot assembly progress for the holographic particle avatar. */
-  assembleProgress: number
-  setAssembleProgress: (p: number) => void
+
   setVoice: (v: string) => void
   setGestures: (on: boolean) => void
   setLooking: (why: string | null) => void
   setBootNote: (n: string) => void
+  setAssembleProgress: (p: number) => void
+  triggerAssemble: () => void
   pushPanel: (p: Panel) => void
   clearPanels: () => void
   pushBlade: (b: Blade) => void
@@ -287,15 +291,18 @@ export const useStore = create<State>((set) => ({
   blades: [],
   focusedBlade: null,
   expandedBlade: null,
-  bootNote: '',
   assembleProgress: 0,
+  assembleTrigger: 0,
+  bootNote: '',
   ui: defaultUi(),
 
-  setAssembleProgress: (assembleProgress) => set({ assembleProgress }),
   setVoice: (voice) => set({ voice }),
   setGestures: (gestures) => set({ gestures }),
   setLooking: (looking) => set({ looking }),
   setBootNote: (bootNote) => set({ bootNote }),
+  setAssembleProgress: (assembleProgress) => set({ assembleProgress }),
+  triggerAssemble: () =>
+    set((s) => ({ assembleTrigger: s.assembleTrigger + 1, assembleProgress: 0 })),
   // Three is as many as fits around the reactor without crowding it. Sticky
   // panels are exempt from the cull — the tool description promises they stay
   // until replaced, and a plain slice(-3) silently evicted them the moment a
@@ -421,14 +428,14 @@ export const useStore = create<State>((set) => ({
 
 /** Colour identity per phase — shared by the 3D scene and the 2D HUD. */
 export const phaseColor: Record<Phase, string> = {
-  offline: '#041f28',
-  boot: '#00f0ff',
-  dormant: '#00d4ff',
-  waking: '#38f8ff',
-  listening: '#00f0ff',
-  thinking: '#ffb703',
-  tooling: '#a855f7',
-  speaking: '#ff9e00',
+  offline: '#0d4a4a',
+  boot: '#17b3b3',
+  dormant: '#12908f',
+  waking: '#5cf2ef',
+  listening: '#19d8d2',
+  thinking: '#f0a93c',
+  tooling: '#a97bff',
+  speaking: '#3ef2a8',
 }
 
 /**

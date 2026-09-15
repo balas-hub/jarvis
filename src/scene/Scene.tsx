@@ -10,7 +10,7 @@ import {
 import { BlendFunction } from 'postprocessing'
 import * as THREE from 'three'
 import { Core } from './Core'
-import { HoloAvatar } from './HoloAvatar'
+import { Humanoid } from './Humanoid'
 import { Particles } from './Particles'
 import { Orbits } from './Orbits'
 import { useStore, phaseColor, accentFor, type Phase } from '../store'
@@ -106,9 +106,10 @@ function aim(tint: Tint, css: string): THREE.Color {
   return tint.color
 }
 
-const STYLE_INDEX = { ring: 0, sphere: 1, wire: 2 } as const
+const STYLE_INDEX = { ring: 0, sphere: 1, wire: 2, humanoid: 3 } as const
 
 function Rig() {
+  const avatarStyle = useStore((s) => s.ui.reactor.style)
   const drive = useMemo<Drive>(
     () => ({
       color: new THREE.Color(phaseColor.offline),
@@ -121,7 +122,7 @@ function Rig() {
         scale: 1,
         intensity: 1,
         spin: 1,
-        style: STYLE_INDEX.ring,
+        style: STYLE_INDEX.humanoid,
         visible: true,
       },
     }),
@@ -155,7 +156,7 @@ function Rig() {
     drive.reactor.scale += (r.scale - drive.reactor.scale) * k
     drive.reactor.intensity += (r.intensity - drive.reactor.intensity) * k
     drive.reactor.spin += (r.spin - drive.reactor.spin) * k
-    drive.reactor.style = STYLE_INDEX[r.style] ?? STYLE_INDEX.ring
+    drive.reactor.style = STYLE_INDEX[r.style] ?? STYLE_INDEX.humanoid
     drive.reactor.visible = r.visible
 
     drive.spin += (spinFor[phase] - drive.spin) * Math.min(1, dt * 2)
@@ -189,6 +190,10 @@ function Rig() {
       if (h.pinched) {
         drive.level = Math.max(drive.level, 0.6)
       }
+    } else if (typeof window !== 'undefined') {
+      // Subtle mouse cursor parallax tracking
+      targetCamX += state.pointer.x * 0.45
+      targetCamY += state.pointer.y * 0.3
     }
 
     state.camera.position.x += (targetCamX - state.camera.position.x) * Math.min(1, dt * 5)
@@ -196,17 +201,13 @@ function Rig() {
     state.camera.lookAt(0, 0, 0)
   })
 
-  // Nothing in here is lit: both the core and the dust are raw ShaderMaterials,
-  // which do not read the light list. The scene therefore has no lights at all.
-  //
-  // The tilted gyro rings that used to sit here are gone. Steeply tilted arcs
-  // crossing in front of a complete circle do not read as depth — they read as
-  // scratches on the lens, and as broken circles in a design whose whole
-  // subject is one unbroken one.
   return (
     <>
-      <HoloAvatar drive={drive} />
-      {drive.reactor.visible && drive.reactor.style !== 0 && <Core drive={drive} />}
+      {avatarStyle === 'humanoid' ? (
+        <Humanoid drive={drive} />
+      ) : (
+        <Core drive={drive} />
+      )}
       <Particles drive={drive} />
       <Orbits />
     </>
@@ -217,7 +218,7 @@ export function Scene() {
   return (
     <Canvas
       className="scene"
-      camera={{ position: [0, 0, 5.8], fov: 45 }}
+      camera={{ position: [0, 0, 6.2], fov: 45 }}
       gl={{ antialias: true, alpha: true }}
       dpr={[1, 2]}
     >
@@ -240,13 +241,13 @@ export function Scene() {
       <EffectComposer multisampling={0}>
         {/* Bloom is what turns additive lines into "hologram". */}
         <Bloom
-          intensity={1.35}
+          intensity={1.15}
           // A higher threshold keeps the mid-tones intact so the orb doesn't
           // flatten into a solid white disc.
-          luminanceThreshold={0.18}
-          luminanceSmoothing={0.88}
+          luminanceThreshold={0.22}
+          luminanceSmoothing={0.85}
           mipmapBlur
-          radius={0.78}
+          radius={0.72}
         />
         <ChromaticAberration
           offset={new THREE.Vector2(0.0009, 0.0012)}

@@ -1,11 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@300;400;600&family=JetBrains+Mono:wght@300;400&display=swap');
 
 :root {
-  /* The interface electric cyan & solar amber theme */
-  --interface: #00f0ff;
+  /* The interface cyan. `--accent` is re-declared per phase and per panel;
+     this one stays put and is what anything neutral pins itself to. */
+  --interface: #00e5ff;
   --accent: var(--interface);
-  --solar-amber: #ffaa00;
-  --bg: #010408;
+  --bg: #01060c;
   font-family: 'Chakra Petch', system-ui, sans-serif;
   color-scheme: dark;
 }
@@ -644,6 +644,52 @@ body::after {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.hud-avatar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: color-mix(in srgb, var(--accent) 90%, white);
+  background: color-mix(in srgb, var(--accent) 14%, rgba(2, 8, 12, 0.75));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  border-radius: 2px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 200ms ease;
+  pointer-events: auto;
+}
+
+.hud-avatar-btn:hover {
+  background: color-mix(in srgb, var(--accent) 26%, rgba(2, 8, 12, 0.85));
+  border-color: var(--accent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.hud-avatar-btn.active {
+  background: color-mix(in srgb, var(--accent) 26%, rgba(2, 8, 12, 0.9));
+  border-color: var(--accent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 55%, transparent);
+  color: #fff;
+}
+
+.avatar-btn-icon {
+  font-size: 12px;
+  color: #ffb700;
+  filter: drop-shadow(0 0 6px #ffb700);
+}
+
+.avatar-btn-key {
+  margin-left: 4px;
+  font-size: 8px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .hud-voice-btn {
@@ -1451,21 +1497,20 @@ kbd {
   z-index: 7;
   display: grid;
   place-items: center;
-  background: radial-gradient(ellipse at center, #020910 0%, #010408 70%);
+  background: radial-gradient(ellipse at center, #04121c 0%, #01060c 70%);
   border: 0;
   cursor: pointer;
   font-family: inherit;
-  color: #00f0ff;
+  color: #4fd6ff;
 }
 
 .ignition-ring {
   position: absolute;
   width: 240px;
   height: 240px;
-  border: 1px solid rgba(0, 240, 255, 0.25);
-  border-top-color: rgba(0, 240, 255, 0.95);
+  border: 1px solid rgba(79, 214, 255, 0.28);
+  border-top-color: rgba(79, 214, 255, 0.9);
   border-radius: 50%;
-  box-shadow: 0 0 24px rgba(0, 240, 255, 0.25);
 }
 
 .ignition-label {
@@ -1479,190 +1524,179 @@ kbd {
   font-size: 15px;
   letter-spacing: 0.52em;
   text-indent: 0.52em; /* balance the trailing letter-space */
-  text-shadow: 0 0 30px rgba(0, 240, 255, 0.85);
+  text-shadow: 0 0 30px rgba(79, 214, 255, 0.7);
 }
 
 .ignition-sub {
   font-size: 9px;
   letter-spacing: 0.28em;
-  opacity: 0.45;
+  opacity: 0.4;
   text-transform: uppercase;
 }
 
 .ignition:hover .ignition-word {
-  text-shadow: 0 0 44px rgba(0, 240, 255, 1);
+  text-shadow: 0 0 44px rgba(79, 214, 255, 1);
 }
 
 /* ------------------------------------------------------------------- boot */
 
-.boot-holo {
+.boot {
   position: fixed;
   inset: 0;
   z-index: 6;
-  pointer-events: none;
+  background: var(--bg);
   color: var(--accent);
   overflow: hidden;
+}
+
+/* -- beat 1: the status bar -------------------------------------------- */
+
+.boot-bar {
+  position: absolute;
+  top: 12%;
+  left: 0;
+  right: 0;
+  padding: 0 min(9vw, 140px);
+  transition: opacity 0.6s ease, filter 0.6s ease;
+}
+.boot-bar-dim { opacity: 0.28; filter: blur(0.6px); }
+
+.boot-bar-frame {
+  position: relative;
+  border-top: 1.5px solid var(--accent);
+  border-bottom: 1.5px solid var(--accent);
+  padding: 14px 26px 12px;
+  clip-path: polygon(3% 0, 97% 0, 100% 42%, 97% 100%, 3% 100%, 0 42%);
+  box-shadow:
+    inset 0 0 40px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 30px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.boot-bar-title {
+  display: inline-flex;
+  align-items: center;
   font-family: 'JetBrains Mono', monospace;
+  font-size: clamp(18px, 3.4vw, 40px);
+  font-weight: 300;
+  letter-spacing: 0.14em;
+  color: #eafcff;
+  text-shadow: 0 0 26px color-mix(in srgb, var(--accent) 60%, transparent);
 }
-
-.holo-corner {
-  position: absolute;
-  width: 44px;
-  height: 44px;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  opacity: 0.7;
-}
-.holo-corner-tl { top: 28px; left: 28px; border-right: 0; border-bottom: 0; }
-.holo-corner-tr { top: 28px; right: 28px; border-left: 0; border-bottom: 0; }
-.holo-corner-bl { bottom: 28px; left: 28px; border-right: 0; border-top: 0; }
-.holo-corner-br { bottom: 28px; right: 28px; border-left: 0; border-top: 0; }
-
-.boot-holo-top {
-  position: absolute;
-  top: 36px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  letter-spacing: 0.28em;
-  text-align: center;
-}
-
-.boot-holo-tag {
-  font-size: 11px;
-  color: #fff;
-  text-shadow: 0 0 16px var(--accent);
-  font-weight: 600;
-}
-
-.boot-holo-sub {
-  font-size: 8px;
-  opacity: 0.55;
-  letter-spacing: 0.22em;
-}
-
-/* Right-aligned sci-fi telemetry display matching user photo */
-.boot-telemetry-panel {
-  position: absolute;
-  right: clamp(32px, 7vw, 150px);
-  top: 48%;
-  transform: translateY(-50%);
-  width: min(310px, 80vw);
-  background: color-mix(in srgb, var(--accent) 6%, rgba(1, 4, 8, 0.75));
-  border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
-  border-left: 2px solid var(--accent);
-  border-radius: 2px;
-  padding: 16px 20px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 0 35px color-mix(in srgb, var(--accent) 22%, transparent);
-}
-
-.telemetry-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.telemetry-label {
-  font-size: 13px;
-  font-weight: 400;
-  letter-spacing: 0.22em;
-  color: var(--accent);
-}
-
-.telemetry-pct {
-  font-size: 15px;
-  font-weight: 600;
-  color: #ffffff;
-  text-shadow: 0 0 14px var(--accent);
-  margin-left: 8px;
-}
-
-.telemetry-pulse-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+.boot-dots { opacity: 0.6; margin: 0 0.2em; }
+.boot-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.05em;
+  margin-left: 0.15em;
   background: var(--accent);
-  box-shadow: 0 0 12px var(--accent);
-  animation: pulseDot 1s infinite alternate;
+  animation: bootBlink 0.7s steps(1) infinite;
 }
+@keyframes bootBlink { 50% { opacity: 0 } }
 
-.telemetry-bar {
-  display: flex;
-  gap: 3px;
-  margin-bottom: 14px;
-}
-
-.telemetry-cell {
+.boot-seg { display: flex; gap: 3px; margin-top: 12px; }
+.boot-seg-cell {
   flex: 1;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 1px;
-  transition: all 120ms ease;
+  height: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  transition: background 0.12s ease, box-shadow 0.12s ease;
 }
-
-.telemetry-cell.active {
+.boot-seg-cell[data-on='1'] {
   background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
+  box-shadow: 0 0 10px var(--accent);
 }
 
-.telemetry-readout {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
+.boot-log {
+  margin-top: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.9;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+}
+.boot-log-line { animation: bootLogIn 0.25s ease both; }
+.boot-log-line::before { content: '\203a  '; opacity: 0.5; }
+@keyframes bootLogIn { from { opacity: 0; transform: translateX(-8px) } }
+
+/* -- beats 2-4: the centre stage --------------------------------------- */
+
+.boot-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+.boot-rings,
+.boot-suit,
+.boot-reactor {
+  width: min(58vmin, 520px);
+  height: min(58vmin, 520px);
+  overflow: visible;
+}
+
+.boot-ring {
+  fill: none;
+  stroke: var(--accent);
+  opacity: 0.8;
+  transform-box: fill-box;
+  transform-origin: center;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent) 50%, transparent));
+}
+.boot-name {
+  fill: #eafcff;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 20px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.boot-wire {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.4;
+  opacity: 0.9;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+.boot-wire-dim { opacity: 0.4; stroke-width: 1; }
+.boot-suit-fig { filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 40%, transparent)); }
+.boot-tag {
+  fill: var(--accent);
+  opacity: 0.55;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
   letter-spacing: 0.14em;
-  border-top: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
-  padding-top: 10px;
+  text-anchor: middle;
 }
 
-.telemetry-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.boot-r-seg {
+  stroke: color-mix(in srgb, var(--accent) 30%, transparent);
+  stroke-width: 8;
 }
-
-.tel-k {
-  opacity: 0.5;
+.boot-r-on { stroke: #dffbff; filter: drop-shadow(0 0 8px var(--accent)); }
+.boot-r-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  opacity: calc(0.3 + var(--glow) * 0.6);
 }
-
-.tel-v {
-  color: #eafaff;
-  font-weight: 500;
-  text-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+.boot-r-ring-in { stroke-width: 1.5; opacity: calc(0.2 + var(--glow) * 0.5); }
+.boot-r-tri {
+  fill: color-mix(in srgb, var(--accent) calc(var(--glow) * 45%), transparent);
+  stroke: #eafcff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 calc(var(--glow) * 26px) var(--accent));
 }
-
-.telemetry-decor {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 12px;
-  padding-top: 8px;
-  border-top: 1px dashed color-mix(in srgb, var(--accent) 22%, transparent);
-  font-size: 8px;
-  opacity: 0.45;
-  letter-spacing: 0.2em;
+.boot-r-tri-in {
+  fill: color-mix(in srgb, #eafcff calc(var(--glow) * 60%), transparent);
+  stroke: none;
 }
-
-.decor-crosshair {
-  width: 8px;
-  height: 8px;
-  border-top: 1px solid var(--accent);
-  border-left: 1px solid var(--accent);
-}
-
-.boot-holo-bottom {
-  position: absolute;
-  bottom: 34px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 8px;
-  letter-spacing: 0.3em;
-  opacity: 0.45;
-  text-align: center;
+.boot-r-v {
+  fill: none;
+  stroke: #05161a;
+  stroke-width: 3.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  opacity: var(--glow);
 }
 
 @media (max-width: 900px) {
@@ -2556,3 +2590,91 @@ kbd {
   transform: scaleX(-1);
   background: #000;
 }
+
+/* Floating Supernatural Humanoid Assembly Telemetry (Matches Reference Photos) */
+.hud-assemble-telemetry {
+  position: fixed;
+  right: max(60px, calc(50% - 370px));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 35;
+  pointer-events: none;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  background: color-mix(in srgb, var(--accent) 12%, rgba(2, 10, 16, 0.88));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-left: 3px solid var(--accent);
+  padding: 11px 15px;
+  border-radius: 2px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 25%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 230px;
+}
+
+@media (max-width: 1024px) {
+  .hud-assemble-telemetry {
+    right: 30px;
+    top: 36%;
+  }
+}
+
+.assemble-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.assemble-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ffb700;
+  box-shadow: 0 0 10px #ffb700;
+  animation: pulseAssembleDot 1s infinite alternate ease-in-out;
+}
+
+.assemble-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #fff;
+  text-shadow: 0 0 8px var(--accent);
+}
+
+.assemble-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.assemble-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ffb700);
+  box-shadow: 0 0 10px var(--accent);
+  transition: width 120ms ease;
+}
+
+.assemble-details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  opacity: 0.8;
+  color: color-mix(in srgb, var(--accent) 85%, white);
+}
+
+.assemble-stats {
+  font-size: 8px;
+  opacity: 0.55;
+}
+
+@keyframes pulseAssembleDot {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1.3); opacity: 1; }
+}
+
