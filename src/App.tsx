@@ -181,10 +181,13 @@ export default function App() {
           store.getState().setActiveTool(name)
           sfx.play('tool')
           music.working(true)
-          // Say something the moment work starts — a tool can take ten seconds
-          // and silence that long reads as a crash. Once per turn only; a
-          // chain of five tools shouldn't produce five apologies.
-          if (!filled && !started) {
+          // Instant local tools (media, volume, app launch, UI changes, fast GUI)
+          // execute in milliseconds; do not delay them with vocal filler announcements.
+          const isInstantTool =
+            /^(system_control|open_app|ui_|display|blade|fs_|process_kill|gui_)/.test(
+              name,
+            )
+          if (!filled && !started && !isInstantTool) {
             filled = true
             spk.say(forTool(name))
           }

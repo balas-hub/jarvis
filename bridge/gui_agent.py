@@ -123,10 +123,21 @@ def focus_window_by_title(target_title):
         return {"success": False, "error": f"No window found matching '{target_title}'"}
 
     hwnd = match["hwnd"]
+    fg = user32.GetForegroundWindow()
+    if fg == hwnd:
+        return {
+            "success": True,
+            "title": match["title"],
+            "hwnd": hwnd,
+            "width": match["width"],
+            "height": match["height"],
+            "already_focused": True
+        }
+
     SW_RESTORE = 9
     user32.ShowWindow(hwnd, SW_RESTORE)
     user32.SetForegroundWindow(hwnd)
-    time.sleep(0.15)
+    time.sleep(0.04)
     return {
         "success": True,
         "title": match["title"],
@@ -134,6 +145,71 @@ def focus_window_by_title(target_title):
         "width": match["width"],
         "height": match["height"]
     }
+
+
+def wait_for_window(target_title, timeout_seconds=3.0):
+    attach_to_default_desktop()
+    target_lower = target_title.lower().strip()
+    start_time = time.time()
+    
+    while time.time() - start_time < float(timeout_seconds):
+        windows = list_open_windows()
+        for win in windows:
+            if target_lower in win["title"].lower():
+                hwnd = win["hwnd"]
+                fg = user32.GetForegroundWindow()
+                if fg != hwnd:
+                    user32.ShowWindow(hwnd, 9)
+                    user32.SetForegroundWindow(hwnd)
+                return {
+                    "success": True,
+                    "title": win["title"],
+                    "hwnd": hwnd,
+                    "elapsed_ms": int((time.time() - start_time) * 1000)
+                }
+        time.sleep(0.06)
+        
+    return {
+        "success": False,
+        "error": f"Timed out waiting for window matching '{target_title}' after {timeout_seconds}s"
+    }
+
+
+KEYEVENTF_KEYUP = 0x0002
+
+MEDIA_VK_MAP = {
+    "volume_up": 0xAF,
+    "volume_down": 0xAE,
+    "mute": 0xAD,
+    "unmute": 0xAD,
+    "volume_max": 0xAF,
+    "media_play_pause": 0xB3,
+    "media_next": 0xB0,
+    "media_prev": 0xB1,
+    "media_stop": 0xB2,
+}
+
+
+def action_media_key(key_name, count=1):
+    attach_to_default_desktop()
+    key_clean = str(key_name).lower().strip()
+    vk = MEDIA_VK_MAP.get(key_clean)
+    if not vk:
+        return {"success": False, "error": f"Unknown media key: {key_name}"}
+
+    repeat = int(count)
+    if key_clean == "volume_max":
+        repeat = 35
+    elif key_clean in ("volume_up", "volume_down") and repeat == 1:
+        repeat = 4
+
+    for _ in range(repeat):
+        user32.keybd_event(vk, 0, 0, 0)
+        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+        if repeat > 1:
+            time.sleep(0.015)
+
+    return {"success": True, "action": "media_key", "key": key_name, "count": repeat}
 
 
 def action_inspect():
@@ -153,7 +229,7 @@ def action_inspect():
     }
 
 
-def action_click(x=None, y=None, button="left", clicks=1, duration=0.1):
+def action_click(x=None, y=None, button="left", clicks=1, duration=0.0):
     attach_to_default_desktop()
     if x is not None and y is not None:
         pyautogui.moveTo(int(x), int(y), duration=float(duration))
@@ -169,14 +245,14 @@ def action_click(x=None, y=None, button="left", clicks=1, duration=0.1):
     }
 
 
-def action_move(x, y, duration=0.2):
+def action_move(x, y, duration=0.15):
     attach_to_default_desktop()
     pyautogui.moveTo(int(x), int(y), duration=float(duration))
     pos = pyautogui.position()
     return {"success": True, "action": "move", "x": pos.x, "y": pos.y}
 
 
-def action_drag(from_x, from_y, to_x, to_y, duration=0.5, button="left"):
+def action_drag(from_x, from_y, to_x, to_y, duration=0.4, button="left"):
     attach_to_default_desktop()
     pyautogui.moveTo(int(from_x), int(from_y))
     pyautogui.dragTo(int(to_x), int(to_y), duration=float(duration), button=button)
@@ -197,9 +273,18 @@ def action_scroll(amount, x=None, y=None):
     return {"success": True, "action": "scroll", "amount": int(amount)}
 
 
-def action_type(text, press_enter=False, interval=0.01):
+def action_type(text, press_enter=False, interval=0.0):
     attach_to_default_desktop()
-    pyautogui.write(str(text), interval=float(interval))
+    s_text = str(text)
+    if len(s_text) > 15:
+        try:
+            import pyperclip
+            pyperclip.copy(s_text)
+            pyautogui.hotkey("ctrl", "v")
+        except Exception:
+            pyautogui.write(s_text, interval=float(interval))
+    else:
+        pyautogui.write(s_text, interval=float(interval))
     if press_enter:
         pyautogui.press("enter")
     return {"success": True, "action": "type", "text": text, "enter": press_enter}
@@ -436,6 +521,14 @@ def main():
             )
         elif action == "screenshot":
             result = action_screenshot(save_path=args.get("path"))
+        elif action == "media_key":
+            key = args.get("key") or args.get("param", "")
+            count = int(args.get("count", 1))
+            result = action_media_key(key, count=count)
+        elif action == "wait_for_window":
+            title = args.get("title") or args.get("name") or args.get("param", "")
+            timeout = float(args.get("timeout", 3.0))
+            result = wait_for_window(title, timeout_seconds=timeout)
         else:
             result = {"error": f"Unknown action: {action}"}
 

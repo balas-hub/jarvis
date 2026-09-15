@@ -763,22 +763,31 @@ export function createToolExecutor({ send, announceTool, settleTool, ask }) {
 
       if (name === 'system_control') {
         const action = args.action
+        const mediaActions = [
+          'volume_up',
+          'volume_down',
+          'mute',
+          'unmute',
+          'volume_max',
+          'media_play_pause',
+          'media_next',
+          'media_prev',
+        ]
+
+        if (mediaActions.includes(action)) {
+          const res = await runGuiAction('media_key', { key: action })
+          settleTool(null, !res.success)
+          return res
+        }
+
+        if (action === 'screenshot') {
+          const res = await runGuiAction('screenshot', {})
+          settleTool(null, !res.success)
+          return res
+        }
+
         let psCmd = ''
-        if (action === 'volume_up') {
-          psCmd = '(New-Object -ComObject WScript.Shell).SendKeys([char]175)'
-        } else if (action === 'volume_down') {
-          psCmd = '(New-Object -ComObject WScript.Shell).SendKeys([char]174)'
-        } else if (action === 'mute' || action === 'unmute') {
-          psCmd = '(New-Object -ComObject WScript.Shell).SendKeys([char]173)'
-        } else if (action === 'volume_max') {
-          psCmd = 'for ($i = 0; $i -lt 50; $i++) { (New-Object -ComObject WScript.Shell).SendKeys([char]175) }'
-        } else if (action === 'media_play_pause') {
-          psCmd = '(New-Object -ComObject WScript.Shell).SendKeys([char]179)'
-        } else if (action === 'media_next') {
-          psCmd = '(New-Object -ComObject WScript.Shell).SendKeys([char]176)'
-        } else if (action === 'media_prev') {
-          psCmd = '(New-Object -ComObject WScript.Shell).SendKeys([char]177)'
-        } else if (action === 'lock') {
+        if (action === 'lock') {
           psCmd = 'rundll32.exe user32.dll,LockWorkStation'
         } else if (action === 'sleep') {
           psCmd = 'rundll32.exe powrprof.dll,SetSuspendState 0,1,0'
@@ -788,9 +797,6 @@ export function createToolExecutor({ send, announceTool, settleTool, ask }) {
           psCmd = 'shutdown.exe /s /t 10'
         } else if (action === 'empty_recycle_bin') {
           psCmd = 'Clear-RecycleBin -Force -ErrorAction SilentlyContinue'
-        } else if (action === 'screenshot') {
-          const outPath = path.join(os.tmpdir(), `screenshot_${Date.now()}.png`)
-          psCmd = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('{PRTSC}'); Start-Sleep -Milliseconds 500; $img = [System.Windows.Forms.Clipboard]::GetImage(); if ($img) { $img.Save('${outPath.replace(/\\/g, '\\\\')}', [System.Drawing.Imaging.ImageFormat]::Png); '${outPath}' }`
         }
 
         const result = await new Promise((resolve) => {
@@ -887,7 +893,8 @@ export function createToolExecutor({ send, announceTool, settleTool, ask }) {
           })
 
           if (autoSend) {
-            await new Promise((r) => setTimeout(r, 2000))
+            await runGuiAction('wait_for_window', { title: 'WhatsApp', timeout: 3.5 })
+            await new Promise((r) => setTimeout(r, 250))
             await runGuiAction('press', { key: 'enter' })
           }
 
@@ -904,16 +911,15 @@ export function createToolExecutor({ send, announceTool, settleTool, ask }) {
           await new Promise((resolve) => {
             exec('Start-Process "whatsapp:"', { shell: 'powershell.exe', timeout: 10000 }, () => resolve())
           })
-          await new Promise((r) => setTimeout(r, 1500))
-
-          await runGuiAction('focus_window', { title: 'WhatsApp' })
-          await new Promise((r) => setTimeout(r, 300))
+          
+          await runGuiAction('wait_for_window', { title: 'WhatsApp', timeout: 3.5 })
+          await new Promise((r) => setTimeout(r, 120))
 
           await runGuiAction('hotkey', { keys: 'ctrl+f' })
-          await new Promise((r) => setTimeout(r, 400))
+          await new Promise((r) => setTimeout(r, 150))
 
           await runGuiAction('type', { text: recipient, press_enter: true })
-          await new Promise((r) => setTimeout(r, 800))
+          await new Promise((r) => setTimeout(r, 350))
 
           await runGuiAction('type', { text: message, press_enter: autoSend })
 

@@ -159,7 +159,7 @@ const SELF_GUARD_MS = 350
  * more clause. Making it generous here is what would make every ordinary
  * question feel slow.
  */
-const SETTLE_MS = 250
+const SETTLE_MS = 80
 /** ...and this long when the sentence is plainly unfinished. */
 const CONTINUE_MS = 1600
 /**
@@ -180,9 +180,18 @@ function holdFor(text: string): number {
   if (/[.!?]$/.test(text)) return 0
   if (TRAILS.test(text.trim())) return CONTINUE_MS
   if (CONTINUES.test(words[words.length - 1])) return CONTINUE_MS
-  // Fast-settle for action commands, overrides, Tamil phrases, or short 1-2 word directives
-  if (OVERRIDE.test(text) || /[\u0B80-\u0BFF]/.test(text)) return SETTLE_MS
-  if (words.length <= 2) return 500
+
+  // Common directive and action command starters: fire immediately with 0ms delay!
+  const firstWord = (words[0] || '').toLowerCase()
+  const ACTION_STARTERS =
+    /^(open|close|play|pause|stop|mute|unmute|volume|turn|switch|set|what|whats|what's|how|hows|how's|who|where|when|tell|show|take|screen|screenshot|clear|minimize|minimise|maximize|exit|quit|restart|shutdown|hello|hi|hey|yes|no|skip|next|back|type|click|run|send|message|call|google|youtube|spotify)$/i
+  if (ACTION_STARTERS.test(firstWord)) return 0
+
+  // Fast-settle for action commands, overrides, Tamil phrases, or short 1-3 word directives
+  if (OVERRIDE.test(text) || /[\u0B80-\u0BFF]/.test(text)) return 0
+  if (words.length <= 3) return 0
+
+  // General multi-clause thoughts: fast settle (down from 250ms)
   return SETTLE_MS
 }
 

@@ -561,7 +561,11 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
       contents: [
         { inlineData: { mimeType, data: base64 } },
         'Transcribe the speech in this audio verbatim. Output ONLY the transcribed text without quotes, markdown, or commentary. If there is no intelligible speech, return an empty string.'
-      ]
+      ],
+      config: {
+        maxOutputTokens: 64,
+        temperature: 0.0,
+      },
     })
     const text = (res.text || '').trim()
     if (text && !/^(\[.*\]|<.*>)$/.test(text)) {
@@ -578,7 +582,11 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
       contents: [
         { inlineData: { mimeType, data: base64 } },
         'Transcribe the speech in this audio verbatim. Output ONLY the transcribed text without quotes, markdown, or commentary. If there is no intelligible speech, return an empty string.'
-      ]
+      ],
+      config: {
+        maxOutputTokens: 64,
+        temperature: 0.0,
+      },
     })
     const text = (res.text || '').trim()
     if (text && !/^(\[.*\]|<.*>)$/.test(text)) {
@@ -1112,9 +1120,9 @@ const handleRequest = async (req, res) => {
       res.writeHead(413, cors)
       return res.end('audio too large')
     }
-    // Silence, or a click. Nothing to transcribe, and calling out to the API
-    // for it would only add latency to a non-answer.
-    if (size < 1200) {
+    // Silence, or a brief click/tap. Nothing to transcribe, and calling out to the API
+    // for it would only add latency and risk hallucination.
+    if (size < 2000) {
       res.writeHead(200, { ...cors, 'content-type': 'application/json' })
       return res.end(JSON.stringify({ text: '' }))
     }

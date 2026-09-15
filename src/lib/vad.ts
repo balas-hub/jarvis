@@ -53,35 +53,26 @@ export type Vad = {
 // ---------------------------------------------------------------------------
 
 /** How far above the noise floor the signal must rise to count as speech.
- *  The floor tracks the room, so this is a ratio, not an absolute level. */
-const TRIGGER_OVER_FLOOR = 2.6
+ *  Tuned to 3.2 to prevent shallow breaths, keyboard clacks, and ambient room noise from falsely triggering. */
+const TRIGGER_OVER_FLOOR = 3.2
 /** While he is speaking, demand this much more, so residual echo is ignored. */
 const GUARD_BOOST = 2.4
 /** Falling back below trigger×this ends the segment. Hysteresis stops a single
  *  dip mid-word from cutting a sentence in half. */
 const RELEASE_RATIO = 0.6
 
-/** Sustained energy for this long confirms speech rather than a knock or click. */
-const START_MS = 110
+/** Sustained vocal energy for 175ms confirms speech rather than a transient tap, click, or cough. */
+const START_MS = 175
 /**
- * Quiet for this long ends the SEGMENT — which is no longer the same thing as
- * ending the turn.
- *
- * It used to be both, which is why this number was impossible to set: long
- * enough not to clip someone thinking mid-sentence meant every completed
- * question also sat waiting for nothing. Deciding whether the thought is
- * actually finished now happens a layer up, on the words rather than the
- * energy (see makeAssembler in voice.ts), so this can go back to being what it
- * should always have been — a cheap "have they stopped making noise" — and the
- * shorter window gets the transcript moving sooner.
+ * Quiet for this long ends the SEGMENT.
+ * Tuned to 360ms (down from 650ms) to shave 290ms of dead latency as soon as the speaker finishes.
  */
-const SILENCE_MS = 650
+const SILENCE_MS = 360
 /** Nobody speaks one segment for this long; cut it and transcribe what we have. */
 const MAX_MS = 20000
 
-/** The floor adapts slowly upward (a fan spinning up) and quickly downward (a
- *  door closing), so it settles to genuine ambient noise without chasing speech. */
-const FLOOR_UP = 0.0008
+/** The floor adapts smoothly to room ambient noise within 1-2 seconds rather than lagging. */
+const FLOOR_UP = 0.0035
 const FLOOR_DOWN = 0.02
 
 function pickMime(): string {
@@ -212,7 +203,7 @@ export async function startVad(h: VadHandlers): Promise<Vad> {
     if (!speaking && armedAt === 0) {
       const rate = smoothEnergy > floor ? FLOOR_UP : FLOOR_DOWN
       floor += (smoothEnergy - floor) * rate
-      floor = Math.max(floor, 0.0015)
+      floor = Math.max(floor, 0.003)
     }
 
     threshold = floor * TRIGGER_OVER_FLOOR * (guard ? GUARD_BOOST : 1)
