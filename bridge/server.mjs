@@ -554,7 +554,41 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
   if (!mimeType || mimeType === 'application/octet-stream') mimeType = 'audio/webm'
   const base64 = audioBuffer.toString('base64')
 
-  // 1. First attempt: Google dedicated speech-to-text model gemini-3.5-transcribe
+  // 1. Primary: gemini-3.5-flash-lite (high RPM, fast multimodal transcription, supports code-switching/Tanglish)
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-3.5-flash-lite',
+      contents: [
+        { inlineData: { mimeType, data: base64 } },
+        'Transcribe the speech in this audio verbatim. Output ONLY the transcribed text without quotes, markdown, or commentary. If there is no intelligible speech, return an empty string.'
+      ]
+    })
+    const text = (res.text || '').trim()
+    if (text && !/^(\[.*\]|<.*>)$/.test(text)) {
+      return text
+    }
+  } catch (err) {
+    console.warn('[jarvis] flash-lite transcribe warning, trying fallback:', err?.message || err)
+  }
+
+  // 2. Fallback: gemini-3.6-flash
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-3.6-flash',
+      contents: [
+        { inlineData: { mimeType, data: base64 } },
+        'Transcribe the speech in this audio verbatim. Output ONLY the transcribed text without quotes, markdown, or commentary. If there is no intelligible speech, return an empty string.'
+      ]
+    })
+    const text = (res.text || '').trim()
+    if (text && !/^(\[.*\]|<.*>)$/.test(text)) {
+      return text
+    }
+  } catch (err) {
+    console.warn('[jarvis] gemini-3.6-flash transcribe warning:', err?.message || err)
+  }
+
+  // 3. Fallback: Google dedicated gemini-3.5-transcribe
   try {
     const res = await ai.models.generateContent({
       model: 'gemini-3.5-transcribe',
@@ -567,25 +601,10 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
       return transcribed.trim()
     }
   } catch (err) {
-    console.warn('[jarvis] gemini-3.5-transcribe warning, trying flash-lite:', err?.message || err)
+    console.error('[jarvis] all Gemini STT models failed:', err?.message || err)
   }
 
-  // 2. Second attempt: gemini-3.5-flash-lite
-  try {
-    const res = await ai.models.generateContent({
-      model: 'gemini-3.5-flash-lite',
-      contents: [
-        { inlineData: { mimeType, data: base64 } },
-        'Transcribe the speech in this audio verbatim. Output ONLY the transcribed text without quotes, markdown, or commentary. If there is no intelligible speech, return an empty string.'
-      ]
-    })
-    const text = (res.text || '').trim()
-    if (/^(\[.*\]|<.*>)$/.test(text)) return ''
-    return text
-  } catch (err) {
-    console.error('[jarvis] gemini flash-lite transcribe failed:', err?.message || err)
-    return ''
-  }
+  return ''
 }
 
 const VOICE_ID = process.env.JARVIS_VOICE_ID ?? 'JBFqnCBsd6RMkjVDRZzb'
