@@ -9,15 +9,32 @@ let ctx: AudioContext | null = null
 let analyser: AnalyserNode | null = null
 let buf: Uint8Array | null = null
 
-export async function getMic(): Promise<MediaStream> {
+export async function getMic(voiceIsolation = true): Promise<MediaStream> {
   if (stream) return stream
-  stream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-    },
-  })
+  const constraints: MediaTrackConstraints = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+    channelCount: 1,
+    sampleRate: 16000,
+  }
+  if (voiceIsolation) {
+    ;(constraints as any).voiceIsolation = true
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: constraints })
+  } catch {
+    // Fallback if browser does not support specific voiceIsolation constraint
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1,
+      },
+    })
+  }
   return stream
 }
 

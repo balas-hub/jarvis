@@ -178,6 +178,8 @@ export function Hud() {
   const gestures = useStore((s) => s.gestures)
   const looking = useStore((s) => s.looking)
   const ui = useStore((s) => s.ui)
+  const muted = useStore((s) => s.muted)
+  const voiceIsolation = useStore((s) => s.voiceIsolation)
 
   // accentFor folds JARVIS's overrides in over the phase colour, so one
   // variable on the root carries a theme change into every .hud-* rule without
@@ -270,7 +272,11 @@ export function Hud() {
                 the right thing to show during boot — as a general fallback a
                 note that never got cleared (a stuck 'voice 97%') sits over
                 LISTENING and PROCESSING for the rest of the session. */}
-            {phase === 'boot' && bootNote ? bootNote : statusText[phase]}
+            {phase === 'boot' && bootNote
+              ? bootNote
+              : muted
+                ? 'MUTED — LISTENING OFF (PRESS M)'
+                : statusText[phase]}
           </span>
         </div>
 
@@ -459,9 +465,41 @@ export function Hud() {
             type="button"
             className={`hud-cmd-mic ${phase === 'listening' ? 'pulsing' : ''}`}
             onClick={handleTriggerTalk}
-            title="Click to talk (or press Space)"
+            title={muted ? 'Click to unmute & talk (or press Space)' : 'Click to talk (or press Space)'}
           >
-            {phase === 'listening' ? '🔴 LISTENING' : '🎙️ TALK'}
+            {phase === 'listening' ? '🔴 LISTENING' : muted ? '🎙️ UNMUTE & TALK' : '🎙️ TALK'}
+          </button>
+          <button
+            type="button"
+            className={`hud-cmd-mute ${muted ? 'muted' : ''}`}
+            onClick={() => {
+              const next = !muted
+              useStore.getState().setMuted(next)
+              window.dispatchEvent(new CustomEvent('jarvis:toggle_mute'))
+            }}
+            title={
+              muted
+                ? 'Microphone muted / listening paused. Click to unmute (or press M)'
+                : 'Stop listening / Mute microphone (or press M)'
+            }
+          >
+            {muted ? '🔇 MUTED' : '🎤 MUTE'}
+          </button>
+          <button
+            type="button"
+            className={`hud-cmd-iso ${voiceIsolation ? 'active' : ''}`}
+            onClick={() => {
+              const next = !voiceIsolation
+              useStore.getState().setVoiceIsolation(next)
+              window.dispatchEvent(new CustomEvent('jarvis:toggle_isolation'))
+            }}
+            title={
+              voiceIsolation
+                ? 'Voice Isolation: ACTIVE (strictly filtering background voices & noise). Click to turn off (or press I)'
+                : 'Voice Isolation: OFF. Click to filter background chatter & noise (or press I)'
+            }
+          >
+            {voiceIsolation ? '🛡️ ISO: ON' : '🛡️ ISO: OFF'}
           </button>
           <button
             type="button"
@@ -498,7 +536,7 @@ export function Hud() {
         </div>
         <div className="hud-hint-bar">
           <span className="hint">
-            say <b>“hey jarvis”</b> · <kbd>Space</kbd> talk · <kbd>Ctrl+Shift+J</kbd> summon / hide
+            say <b>“hey jarvis”</b> · <kbd>Space</kbd> talk · <kbd>M</kbd> {muted ? 'unmute' : 'mute'} · <kbd>I</kbd> isolation: {voiceIsolation ? 'ON' : 'OFF'} · <kbd>Ctrl+Shift+J</kbd> summon / hide
             {voice && (
               <>
                 {' · '}

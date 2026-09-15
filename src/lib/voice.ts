@@ -53,6 +53,8 @@ export type VoiceHandlers = {
 
 export type Voice = {
   stop: () => void
+  setMuted: (m: boolean) => void
+  setVoiceIsolation: (on: boolean) => void
   /** True while a recogniser is actually running. */
   live: () => boolean
 }
@@ -204,15 +206,17 @@ function holdFor(text: string): number {
     return 600
   }
 
-  // Multi-word commands & questions: if >= 2 words, fire promptly!
+  // Multi-word commands & questions: if >= 2 words, fire with 0ms delay!
   if (TRANSITIVE_STARTERS.test(firstWord) || QUESTION_STARTERS.test(firstWord) || STANDALONE_1WORD.test(firstWord)) {
-    return SETTLE_MS
+    return 0
   }
 
   // Fast-settle for action commands, overrides, Tamil phrases
   if (OVERRIDE.test(text) || /[\u0B80-\u0BFF]/.test(text)) return 0
 
-  // General multi-clause thoughts: fast settle
+  // Multi-word complete thoughts: fire immediately
+  if (words.length >= 2) return 0
+
   return SETTLE_MS
 }
 
@@ -434,7 +438,7 @@ export async function startVoice(h: VoiceHandlers): Promise<Voice> {
         ? 'Microphone access denied — voice input is unavailable.'
         : 'No microphone available.',
     )
-    return { stop: () => {}, live: () => false }
+    return { stop: () => {}, setMuted: () => {}, setVoiceIsolation: () => {}, live: () => false }
   }
   const isDesktop =
     typeof window !== 'undefined' &&
@@ -633,6 +637,8 @@ async function startElevenVoice(h: VoiceHandlers): Promise<Voice> {
       vad?.stop()
       diag.running = false
     },
+    setMuted: (m: boolean) => vad?.setMuted(m),
+    setVoiceIsolation: (on: boolean) => vad?.setVoiceIsolation(on),
     live: () => vad?.live() ?? false,
   }
 }
@@ -656,7 +662,7 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
     (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition
   if (!Ctor) {
     h.onError('This browser has no speech recognition — use Chrome or Edge, or add an ElevenLabs key.')
-    return { stop: () => {}, live: () => false }
+    return { stop: () => {}, setMuted: () => {}, setVoiceIsolation: () => {}, live: () => false }
   }
 
   let stopped = false
@@ -917,6 +923,8 @@ function startBrowserVoice(h: VoiceHandlers): Voice {
         /* noop */
       }
     },
+    setMuted: (_m: boolean) => {},
+    setVoiceIsolation: (_on: boolean) => {},
     live: () => running,
   }
 }

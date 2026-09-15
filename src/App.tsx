@@ -243,6 +243,7 @@ export default function App() {
 
   /** What the voice loop should do with what it hears, derived from phase. */
   const mode = (): VoiceMode => {
+    if (store.getState().muted) return 'deaf'
     switch (store.getState().phase) {
       case 'offline':
       case 'boot':
@@ -259,7 +260,7 @@ export default function App() {
 
   const onWake = (trailing: string) => {
     const phase = store.getState().phase
-    if (phase === 'offline' || phase === 'boot') return
+    if (phase === 'offline' || phase === 'boot' || store.getState().muted) return
 
     store.getState().setError(null)
     sfx.play('wake')
@@ -291,7 +292,7 @@ export default function App() {
   const onSpeechStart = () => {
     clearIdle()
     const phase = store.getState().phase
-    if (phase === 'offline' || phase === 'boot' || phase === 'dormant') return
+    if (phase === 'offline' || phase === 'boot' || phase === 'dormant' || store.getState().muted) return
 
     const wasBusy =
       phase === 'thinking' || phase === 'tooling' || phase === 'speaking'
@@ -312,7 +313,7 @@ export default function App() {
 
   const onUtterance = (text: string) => {
     const phase = store.getState().phase
-    if (phase === 'offline' || phase === 'boot' || phase === 'dormant') return
+    if (phase === 'offline' || phase === 'boot' || phase === 'dormant' || store.getState().muted) return
 
     // People keep using his name as a vocative once they're already talking to
     // him. Strip it rather than sending "jarvis" to the model as a question.
@@ -323,6 +324,49 @@ export default function App() {
     const said = text.replace(LEADING_NAME, '').trim()
     if (!said) {
       listen(AWAIT_SPEECH_MS)
+      return
+    }
+
+    const lower = said.toLowerCase()
+
+    // Voice command: Stop listening / Mute microphone
+    if (
+      /^(stop listening|mute microphone|mute mic|pause listening|go deaf|stand down mic|stand down microphone)$/i.test(lower) ||
+      lower === 'stop listening' ||
+      lower === 'mute mic' ||
+      lower === 'mute microphone' ||
+      lower === 'stand down'
+    ) {
+      silence()
+      store.getState().setMuted(true)
+      voice.current?.setMuted(true)
+      const ack = createSpeaker()
+      speaker.current = ack
+      ack.say('Standing down, sir. Microphone muted. Press M or click Talk when you need me.')
+      void ack.end().then(() => {
+        goDormant()
+      })
+      return
+    }
+
+    // Voice command: Voice isolation toggle
+    if (/^(enable|turn on|activate)\s+voice\s+isolation$/i.test(lower)) {
+      store.getState().setVoiceIsolation(true)
+      voice.current?.setVoiceIsolation(true)
+      const ack = createSpeaker()
+      speaker.current = ack
+      ack.say('Voice isolation active, sir. Background conversations and noise will be filtered out.')
+      void ack.end()
+      return
+    }
+
+    if (/^(disable|turn off|deactivate)\s+voice\s+isolation$/i.test(lower)) {
+      store.getState().setVoiceIsolation(false)
+      voice.current?.setVoiceIsolation(false)
+      const ack = createSpeaker()
+      speaker.current = ack
+      ack.say('Voice isolation disabled, sir. Standard sensitivity restored.')
+      void ack.end()
       return
     }
 
@@ -560,6 +604,8 @@ export default function App() {
       onUtterance,
       onError: onVoiceError,
     })
+    voice.current.setMuted(store.getState().muted)
+    voice.current.setVoiceIsolation(store.getState().voiceIsolation)
 
     store.getState().setPhase('dormant')
   }
@@ -608,6 +654,20 @@ export default function App() {
     }
   }, [phase])
 
+  // -- store sync for voice muted & isolation ------------------------------
+
+  useEffect(() => {
+    const unsub = store.subscribe((state, prevState) => {
+      if (state.muted !== prevState.muted) {
+        voice.current?.setMuted(state.muted)
+      }
+      if (state.voiceIsolation !== prevState.voiceIsolation) {
+        voice.current?.setVoiceIsolation(state.voiceIsolation)
+      }
+    })
+    return unsub
+  }, [])
+
   // -- command dispatch & UI trigger listeners ------------------------------
 
   useEffect(() => {
@@ -627,6 +687,10 @@ export default function App() {
 
     const handleTriggerTalk = () => {
       const ph = store.getState().phase
+      if (store.getState().muted) {
+        store.getState().setMuted(false)
+        voice.current?.setMuted(false)
+      }
       if (ph === 'offline') {
         void powerOn()
       } else if (ph === 'thinking' || ph === 'tooling' || ph === 'speaking') {
@@ -637,11 +701,29 @@ export default function App() {
       }
     }
 
+    const handleToggleMute = () => {
+      const next = !store.getState().muted
+      store.getState().setMuted(next)
+      voice.current?.setMuted(next)
+      silence()
+      if (next) goDormant()
+    }
+
+    const handleToggleIsolation = () => {
+      const next = !store.getState().voiceIsolation
+      store.getState().setVoiceIsolation(next)
+      voice.current?.setVoiceIsolation(next)
+    }
+
     window.addEventListener('jarvis:send_command', handleCommand)
     window.addEventListener('jarvis:trigger_talk', handleTriggerTalk)
+    window.addEventListener('jarvis:toggle_mute', handleToggleMute)
+    window.addEventListener('jarvis:toggle_isolation', handleToggleIsolation)
     return () => {
       window.removeEventListener('jarvis:send_command', handleCommand)
       window.removeEventListener('jarvis:trigger_talk', handleTriggerTalk)
+      window.removeEventListener('jarvis:toggle_mute', handleToggleMute)
+      window.removeEventListener('jarvis:toggle_isolation', handleToggleIsolation)
     }
   }, [])
 
@@ -735,6 +817,48 @@ export default function App() {
             )
           }
         })
+        return
+      }
+
+      // M toggles microphone mute / stop listening
+      if (e.key === 'm' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        const next = !store.getState().muted
+        store.getState().setMuted(next)
+        voice.current?.setMuted(next)
+        silence()
+        const ack = createSpeaker()
+        speaker.current = ack
+        if (next) {
+          ack.say('Microphone muted. Listening stopped, sir.')
+          void ack.end().then(() => {
+            goDormant()
+          })
+        } else {
+          ack.say('Microphone active. I am listening, sir.')
+          void ack.end().then(() => {
+            if (store.getState().phase !== 'offline') {
+              onWake('')
+            }
+          })
+        }
+        return
+      }
+
+      // I toggles Voice Isolation
+      if (e.key === 'i' && !e.repeat && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        const next = !store.getState().voiceIsolation
+        store.getState().setVoiceIsolation(next)
+        voice.current?.setVoiceIsolation(next)
+        const ack = createSpeaker()
+        speaker.current = ack
+        ack.say(
+          next
+            ? 'Voice isolation active. Background noise filtered.'
+            : 'Voice isolation off.',
+        )
+        void ack.end()
         return
       }
 

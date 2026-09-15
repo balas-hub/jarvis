@@ -541,14 +541,15 @@ function getGenAIClient() {
   return _genaiClient
 }
 
-/** Google Voice Search System Instruction for zero-hallucination, high-fidelity STT */
-const GOOGLE_VOICE_SEARCH_INSTRUCTION = `You are the Google Voice Search speech recognition engine.
-Your sole responsibility is verbatim transcription of clear, audible human speech.
-MANDATORY RULES:
-1. If the audio contains only silence, ambient noise, room hiss, fan or AC vibration, breathing, keyboard typing, mouse clicks, chair squeaks, throat clearing, coughs, or unintelligible murmurs, you MUST output the exact single token: NONE.
-2. NEVER guess, invent, or hallucinate words from noise or silence.
-3. NEVER output timecodes or timestamps (e.g., "00:00").
-4. If and only if clear human speech is present, output ONLY the spoken words with standard capitalization and punctuation. No commentary, no tags, no markdown.`
+/** Google Voice Search System Instruction for zero-hallucination, near-field Voice Isolation STT */
+const GOOGLE_VOICE_SEARCH_INSTRUCTION = `You are the Google Voice Search speech recognition engine equipped with near-field Voice Isolation.
+Your sole responsibility is verbatim transcription of the PRIMARY, FOREGROUND human speaker closest to the microphone.
+MANDATORY VOICE ISOLATION & ACCURACY RULES:
+1. VOICE ISOLATION: Transcribe ONLY the primary foreground speaker. Strictly IGNORE, DISREGARD, and OMIT background chatter, secondary voices in the room, distant conversations, television/radio audio, or side speech.
+2. If the audio contains only silence, ambient noise, room hiss, fan or AC vibration, breathing, keyboard typing, mouse clicks, chair squeaks, throat clearing, coughs, or unintelligible murmurs, you MUST output the exact single token: NONE.
+3. NEVER guess, invent, or hallucinate words from noise, background chatter, or silence.
+4. NEVER output timecodes or timestamps (e.g., "00:00").
+5. If and only if clear foreground human speech is present, output ONLY the spoken words with standard capitalization and punctuation. No commentary, no tags, no markdown.`
 
 function filterSttNoise(raw) {
   if (!raw) return ''
@@ -592,7 +593,7 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
       ],
       config: {
         systemInstruction: GOOGLE_VOICE_SEARCH_INSTRUCTION,
-        maxOutputTokens: 64,
+        maxOutputTokens: 48,
         temperature: 0.0,
       },
     })
@@ -613,7 +614,7 @@ async function transcribeWithGemini(audioBuffer, contentType = 'audio/webm') {
       ],
       config: {
         systemInstruction: GOOGLE_VOICE_SEARCH_INSTRUCTION,
-        maxOutputTokens: 64,
+        maxOutputTokens: 48,
         temperature: 0.0,
       },
     })
@@ -1149,7 +1150,7 @@ const handleRequest = async (req, res) => {
     }
     // Silence, or a brief click/tap. Nothing to transcribe, and calling out to the API
     // for it would only add latency and risk hallucination.
-    if (size < 3500) {
+    if (size < 2000) {
       res.writeHead(200, { ...cors, 'content-type': 'application/json' })
       return res.end(JSON.stringify({ text: '' }))
     }

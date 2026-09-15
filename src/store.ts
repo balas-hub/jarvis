@@ -222,6 +222,10 @@ type State = {
   connected: string[]
   /** Name of the speech-synthesis voice in use, shown in the HUD. */
   voice: string
+  /** Whether microphone listening is currently stopped / muted. */
+  muted: boolean
+  /** Whether near-field voice isolation is enabled (ignores background chatter and room noise). */
+  voiceIsolation: boolean
   /** Whether the camera is on and hands are being tracked. Store-backed rather
    *  than read off the tracker, because the indicator has to re-render. */
   gestures: boolean
@@ -242,6 +246,8 @@ type State = {
   ui: UiState
 
   setVoice: (v: string) => void
+  setMuted: (m: boolean) => void
+  setVoiceIsolation: (enabled: boolean) => void
   setGestures: (on: boolean) => void
   setLooking: (why: string | null) => void
   setBootNote: (n: string) => void
@@ -279,6 +285,8 @@ export const useStore = create<State>((set) => ({
   error: null,
   connected: [],
   voice: '',
+  muted: false,
+  voiceIsolation: true,
   gestures: false,
   looking: null,
   panels: [],
@@ -289,6 +297,8 @@ export const useStore = create<State>((set) => ({
   ui: defaultUi(),
 
   setVoice: (voice) => set({ voice }),
+  setMuted: (muted) => set({ muted }),
+  setVoiceIsolation: (voiceIsolation) => set({ voiceIsolation }),
   setGestures: (gestures) => set({ gestures }),
   setLooking: (looking) => set({ looking }),
   setBootNote: (bootNote) => set({ bootNote }),

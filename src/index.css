@@ -592,6 +592,63 @@ body::after {
   border-color: var(--accent);
 }
 
+.hud-cmd-mute {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: color-mix(in srgb, var(--accent) 85%, white);
+  border-radius: 2px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 150ms ease;
+}
+
+.hud-cmd-mute:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: var(--accent);
+}
+
+.hud-cmd-mute.muted {
+  background: rgba(255, 75, 75, 0.25);
+  border-color: #ff4d4d;
+  color: #ff8080;
+  box-shadow: 0 0 12px rgba(255, 75, 75, 0.5);
+  animation: micPulse 1.8s infinite alternate;
+}
+
+.hud-cmd-iso {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  color: color-mix(in srgb, var(--accent) 85%, white);
+  border-radius: 2px;
+  padding: 5px 8px;
+  font-family: inherit;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 150ms ease;
+}
+
+.hud-cmd-iso:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: var(--accent);
+}
+
+.hud-cmd-iso.active {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
 .hud-controls {
   pointer-events: auto;
 }
