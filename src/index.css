@@ -2325,3 +2325,262 @@ kbd {
   transform: scaleX(-1);
   background: #000;
 }
+
+/* ==========================================================================
+   Face Tracker Biometric HUD
+   ========================================================================== */
+.face-tracker-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.face-bracket {
+  position: relative;
+  width: 260px;
+  height: 280px;
+  border: 1px solid rgba(0, 255, 255, 0.25);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.15), inset 0 0 15px rgba(0, 255, 255, 0.08);
+  transition: all 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(1px);
+}
+
+.face-bracket.confirmed {
+  border-color: rgba(0, 255, 255, 0.8);
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.4), inset 0 0 20px rgba(0, 255, 255, 0.2);
+}
+
+.face-bracket .bracket-corner {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: #00ffff;
+  border-style: solid;
+}
+.face-bracket.confirmed .bracket-corner {
+  border-color: #00ffff;
+}
+.bracket-corner.tl { top: -2px; left: -2px; border-width: 3px 0 0 3px; }
+.bracket-corner.tr { top: -2px; right: -2px; border-width: 3px 3px 0 0; }
+.bracket-corner.bl { bottom: -2px; left: -2px; border-width: 0 0 3px 3px; }
+.bracket-corner.br { bottom: -2px; right: -2px; border-width: 0 3px 3px 0; }
+
+.bracket-scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00ffff, transparent);
+  box-shadow: 0 0 10px #00ffff;
+  animation: faceScan 2s ease-in-out infinite alternate;
+}
+
+@keyframes faceScan {
+  from { top: 10%; }
+  to { top: 90%; }
+}
+
+.bracket-info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  background: rgba(1, 6, 12, 0.85);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.bracket-info.top {
+  top: -46px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: #00ffff;
+}
+
+.bracket-info.bottom {
+  bottom: -68px;
+  font-size: 11px;
+}
+
+.bracket-name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: #fff;
+  text-shadow: 0 0 8px #00ffff;
+}
+
+.bracket-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 10px;
+  color: #88ccee;
+  margin-top: 3px;
+}
+
+.bracket-notes {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ==========================================================================
+   3D Holographic Playground Mode HUD
+   ========================================================================== */
+.playground-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.playground-banner {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 24px;
+  background: rgba(1, 8, 16, 0.85);
+  border: 1px solid rgba(0, 255, 255, 0.4);
+  box-shadow: 0 0 25px rgba(0, 255, 255, 0.2);
+  border-radius: 4px;
+  pointer-events: auto;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.playground-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playground-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00ffff;
+  box-shadow: 0 0 10px #00ffff;
+  animation: pPulse 1.2s infinite alternate;
+}
+
+@keyframes pPulse {
+  from { opacity: 0.4; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1.2); }
+}
+
+.playground-tag {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #fff;
+}
+
+.playground-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: rgba(0, 255, 255, 0.15);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  color: #00ffff;
+}
+
+.playground-status-line {
+  font-size: 11px;
+  color: #88ddff;
+  letter-spacing: 0.08em;
+}
+
+.playground-dock {
+  position: absolute;
+  bottom: 80px;
+  right: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  background: rgba(2, 10, 18, 0.88);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  border-radius: 4px;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.15);
+  pointer-events: auto;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.playground-colors {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.playground-color-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 150ms ease, border-color 150ms ease;
+}
+
+.playground-color-btn:hover {
+  transform: scale(1.2);
+}
+
+.playground-color-btn.active {
+  border-color: #fff;
+  transform: scale(1.15);
+}
+
+.playground-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.playground-btn {
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 180ms ease;
+}
+
+.playground-btn.clear {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ccddee;
+}
+
+.playground-btn.clear:hover {
+  background: rgba(255, 50, 50, 0.2);
+  border-color: #ff3344;
+  color: #ff8888;
+}
+
+.playground-btn.exit {
+  background: rgba(0, 255, 255, 0.12);
+  border: 1px solid #00ffff;
+  color: #00ffff;
+}
+
+.playground-btn.exit:hover {
+  background: #00ffff;
+  color: #01060c;
+  box-shadow: 0 0 12px #00ffff;
+}

@@ -12,6 +12,7 @@ import * as THREE from 'three'
 import { Core } from './Core'
 import { Particles } from './Particles'
 import { Orbits } from './Orbits'
+import { Playground3D } from './Playground3D'
 import { useStore, phaseColor, accentFor, type Phase } from '../store'
 import { hands } from '../lib/hands'
 
@@ -207,6 +208,7 @@ function Rig() {
       <Core drive={drive} />
       <Particles drive={drive} />
       <Orbits />
+      <Playground3D />
     </>
   )
 }

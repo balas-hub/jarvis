@@ -4,6 +4,8 @@ import { Hud } from './ui/Hud'
 import { Boot } from './ui/Boot'
 import { Ignition } from './ui/Ignition'
 import { Diagnostics } from './ui/Diagnostics'
+import { PlaygroundHud } from './ui/PlaygroundHud'
+import { FaceTracker, notifyFaceMatch } from './ui/FaceTracker'
 import { useStore } from './store'
 import { startVoice, type Voice, type VoiceMode } from './lib/voice'
 import { createSpeaker, cycleVoice, currentVoiceName } from './lib/tts'
@@ -373,6 +375,32 @@ export default function App() {
       return
     }
 
+    // Voice command: 3D Holographic Playground mode toggle
+    if (
+      /^(enter|start|open|activate|turn on)\s+(3d\s+)?playground(\s+mode)?$/i.test(lower) ||
+      lower === 'playground' ||
+      lower === 'playground mode'
+    ) {
+      silence()
+      store.getState().setPlayground(true)
+      void hands.enableHands().then(() => store.getState().setGestures(true))
+      const ack = createSpeaker()
+      speaker.current = ack
+      ack.say('Activating 3D holographic playground mode, sir. Ready for gesture drawing.')
+      void ack.end()
+      return
+    }
+
+    if (/^(exit|close|stop|leave|deactivate|turn off)\s+(3d\s+)?playground(\s+mode)?$/i.test(lower)) {
+      silence()
+      store.getState().setPlayground(false)
+      const ack = createSpeaker()
+      speaker.current = ack
+      ack.say('Exiting playground mode. Returning to standard HUD.')
+      void ack.end()
+      return
+    }
+
     void respond(said)
   }
 
@@ -527,6 +555,24 @@ export default function App() {
             hands.disableHands()
             s.setGestures(false)
           }
+          break
+        }
+        case 'playground': {
+          const pArgs = args as { active?: boolean }
+          const active = pArgs?.active ?? true
+          s.setPlayground(active)
+          if (active) {
+            void hands
+              .enableHands()
+              .then(() => s.setGestures(true))
+              .catch((err: Error) => {
+                s.setError(`Gesture tracking failed: ${err.message}`)
+              })
+          }
+          break
+        }
+        case 'face_identified': {
+          notifyFaceMatch(args as any)
           break
         }
         default:
@@ -910,6 +956,8 @@ export default function App() {
     <>
       <Scene />
       <Hud />
+      <PlaygroundHud />
+      <FaceTracker />
       <Boot />
       <Diagnostics />
       <Ignition onStart={() => void powerOn()} />

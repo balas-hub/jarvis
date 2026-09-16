@@ -16,6 +16,7 @@ import { exec, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { enrollPerson, identifyPerson, listPeople, renamePerson, deletePerson } from './faces.mjs'
 
 // Prefer IPv4 on Windows to prevent IPv6 connect timeout
 try {
@@ -174,6 +175,35 @@ export const GEMINI_TOOLS = [
         enabled: { type: 'BOOLEAN', description: 'True to activate hand gesture tracking; false to deactivate.' }
       },
       required: ['enabled']
+    }
+  },
+  {
+    name: 'ui_playground',
+    description: 'Enter or exit 3D holographic playground mode for touchless gesture drawing with index finger, two-finger erasing, pinch drag & drop, and 5-finger 3D rotation.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        active: { type: 'BOOLEAN', description: 'True to activate 3D playground mode, false to deactivate.' }
+      },
+      required: ['active']
+    }
+  },
+  {
+    name: 'face_db',
+    description: 'Biometric facial database to assign names to people, recognize individuals on camera, list known people, or update records.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        action: {
+          type: 'STRING',
+          description: 'Action: enroll (assign name to person in front of camera), identify (recognize who is in front of camera), list (view all enrolled people), rename (change name of person), delete (remove person).',
+          enum: ['enroll', 'identify', 'list', 'rename', 'delete']
+        },
+        name: { type: 'STRING', description: 'Name of the person (required for enroll, rename, delete).' },
+        newName: { type: 'STRING', description: 'New name for the person when action is rename.' },
+        notes: { type: 'STRING', description: 'Relationship or description notes (e.g. "Creator", "Friend", "Teammate") when action is enroll.' }
+      },
+      required: ['action']
     }
   },
   {
@@ -506,7 +536,7 @@ function runGuiAction(action, args = {}) {
 /**
  * Creates a reusable tool executor for local PC automation and HUD features.
  */
-export function createToolExecutor({ send, announceTool, settleTool, ask }) {
+export function createToolExecutor({ send, announceTool, settleTool, ask, ai, getModel }) {
   return async function executeTool(name, args = {}, askId = null) {
     announceTool(null, name)
     try {
@@ -578,9 +608,146 @@ export function createToolExecutor({ send, announceTool, settleTool, ask }) {
           mimeType: capture.mimeType || 'image/jpeg',
           info: 'Frame captured successfully.',
         }
+      if (name === 'ui_playground') {
+        const active = Boolean(args.active)
+        send({ type: 'ui', op: 'playground', args: { active } })
+        if (active) {
+          send({ type: 'ui', op: 'gestures', args: { enabled: true } })
+        }
+        settleTool(null, false)
+        return {
+          success: true,
+          active,
+          message: active
+            ? '3D Holographic Playground mode activated. Gesture drawing with index finger, two-finger erase, pinch drag-and-drop, and 5-finger 3D rotation are now online.'
+            : '3D Holographic Playground mode deactivated.',
+        }
       }
 
-      // --- PC Access Implementations ---
+      if (name === 'face_db') {
+        const action = args.action || 'list'
+        const activeModel = getModel ? getModel() : UNIQUE_MODELS[0]
+
+        if (action === 'enroll') {
+          if (!args.name) {
+            settleTool(null, false)
+            return { error: 'Name is required to enroll someone in the facial database.' }
+          }
+          const capture = await ask('capture', {
+            mode: 'look',
+            reason: `Biometric facial enrollment for ${args.name}`,
+            seconds: 1,
+            when: 'now',
+          })
+          if (!capture?.data) {
+            settleTool(null, false)
+            return { error: 'Could not capture camera frame for facial enrollment.' }
+          }
+          const record = await enrollPerson({
+            name: args.name,
+            notes: args.notes || '',
+            imageBase64: capture.data,
+            mimeType: capture.mimeType || 'image/jpeg',
+            ai,
+            model: activeModel,
+          })
+          const id = `b-${Date.now()}`
+          send({
+            type: 'panel',
+            panel: {
+              id,
+              title: 'BIOMETRICS ENROLLED',
+              html: `<div class="hud-stat"><span class="hud-stat-value">${record.name.toUpperCase()}</span><span class="hud-stat-label">FACIAL PROFILE SAVED</span></div><p style="color:var(--text-dim,#88a);font-size:12px;margin-top:6px;">${record.features}</p>`,
+              style: 'panel',
+              at: Date.now(),
+            },
+          })
+          send({ type: 'ui', op: 'face_enrolled', args: record })
+          settleTool(null, false)
+          return {
+            success: true,
+            person: record,
+            message: `Successfully enrolled ${record.name} into the facial database.`,
+          }
+        }
+
+        if (action === 'identify') {
+          const capture = await ask('capture', {
+            mode: 'look',
+            reason: 'Identifying person in front of the camera',
+            seconds: 1,
+            when: 'now',
+          })
+          if (!capture?.data) {
+            settleTool(null, false)
+            return { error: 'Could not capture camera frame for facial identification.' }
+          }
+          const result = await identifyPerson({
+            imageBase64: capture.data,
+            mimeType: capture.mimeType || 'image/jpeg',
+            ai,
+            model: activeModel,
+          })
+          if (result.matched && result.name) {
+            const id = `b-${Date.now()}`
+            send({
+              type: 'panel',
+              panel: {
+                id,
+                title: 'BIOMETRIC MATCH',
+                html: `<div class="hud-stat"><span class="hud-stat-value">${result.name.toUpperCase()}</span><span class="hud-stat-label">CONFIDENCE: ${(result.confidence * 100).toFixed(0)}%</span></div><p style="color:var(--text-dim,#88a);font-size:12px;margin-top:6px;">${result.explanation || result.notes || 'Identified from facial database'}</p>`,
+                style: 'panel',
+                at: Date.now(),
+              },
+            })
+            send({ type: 'ui', op: 'face_identified', args: result })
+          }
+          settleTool(null, false)
+          return result
+        }
+
+        if (action === 'list') {
+          const people = listPeople()
+          const rows = people.length
+            ? people
+                .map(
+                  (p) =>
+                    `<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1);"><strong style="color:var(--hud-accent,#00ffff);font-size:14px;">${p.name}</strong> <span style="opacity:0.6;font-size:11px;">(${p.notes || 'User'})</span><div style="font-size:11px;opacity:0.75;margin-top:2px;">${p.features || 'No features recorded'}</div></div>`,
+                )
+                .join('')
+            : '<p style="opacity:0.6;">No individuals enrolled yet.</p>'
+          send({
+            type: 'blade',
+            blade: {
+              id: `b-${Date.now()}`,
+              title: 'FACIAL DATABASE',
+              kind: 'markup',
+              html: `<div style="padding:16px;"><h3>ENROLLED BIOMETRIC PROFILES (${people.length})</h3>${rows}</div>`,
+              size: 'compact',
+              hold: 'turn',
+              at: Date.now(),
+            },
+          })
+          settleTool(null, false)
+          return { success: true, count: people.length, people }
+        }
+
+        if (action === 'rename') {
+          const updated = renamePerson(args.name, args.newName)
+          settleTool(null, false)
+          return updated
+            ? { success: true, message: `Renamed to ${updated.name}`, person: updated }
+            : { error: `Could not find person "${args.name}" to rename.` }
+        }
+
+        if (action === 'delete') {
+          const ok = deletePerson(args.name)
+          settleTool(null, false)
+          return ok
+            ? { success: true, message: `Removed "${args.name}" from facial database.` }
+            : { error: `Could not find person "${args.name}" to remove.` }
+        }
+      }
       if (name === 'system_run') {
         const cmd = args.command
         const runCwd = args.cwd || process.cwd()
@@ -986,7 +1153,7 @@ export function createGeminiSession({
       },
     })
   }
-  const executeTool = createToolExecutor({ send, announceTool, settleTool, ask })
+  const executeTool = createToolExecutor({ send, announceTool, settleTool, ask, ai, getModel: () => currentModel })
 
   return {
     async handleAsk(userText, askId) {

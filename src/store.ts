@@ -245,10 +245,15 @@ type State = {
   /** JARVIS's control over his own appearance. UI_DEFAULTS == the stock look. */
   ui: UiState
 
+  /** Whether the interactive 3D holographic drawing playground is active. */
+  playground: boolean
+  playgroundColor: string
   setVoice: (v: string) => void
   setMuted: (m: boolean) => void
   setVoiceIsolation: (enabled: boolean) => void
   setGestures: (on: boolean) => void
+  setPlayground: (active: boolean) => void
+  setPlaygroundColor: (color: string) => void
   setLooking: (why: string | null) => void
   setBootNote: (n: string) => void
   pushPanel: (p: Panel) => void
@@ -288,6 +293,8 @@ export const useStore = create<State>((set) => ({
   muted: false,
   voiceIsolation: true,
   gestures: false,
+  playground: false,
+  playgroundColor: '#00ffff',
   looking: null,
   panels: [],
   blades: [],
@@ -300,6 +307,8 @@ export const useStore = create<State>((set) => ({
   setMuted: (muted) => set({ muted }),
   setVoiceIsolation: (voiceIsolation) => set({ voiceIsolation }),
   setGestures: (gestures) => set({ gestures }),
+  setPlayground: (playground) => set({ playground }),
+  setPlaygroundColor: (playgroundColor) => set({ playgroundColor }),
   setLooking: (looking) => set({ looking }),
   setBootNote: (bootNote) => set({ bootNote }),
   // Three is as many as fits around the reactor without crowding it. Sticky

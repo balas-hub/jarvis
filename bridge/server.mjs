@@ -671,11 +671,9 @@ const MAX_FILE_BYTES = 25 * 1024 * 1024
 
 const FILE_ROOTS = [
   homedir(),
-  // Both temp directories, because on macOS os.tmpdir() is the per-user
-  // $TMPDIR under /var/folders while half the tools that take a screenshot
-  // still write it to /tmp. Dropping one of them loses real panels.
   tmpdir(),
   '/tmp',
+  resolvePath(__dirname, '..', 'data'),
   ...(process.env.JARVIS_FILE_ROOTS ?? '')
     .split(',')
     .map((s) => s.trim())
