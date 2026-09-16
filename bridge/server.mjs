@@ -31,6 +31,9 @@ import { isAbsolute, join, relative, resolve as resolvePath } from 'node:path'
 import { openRemote, proxyError, vetTarget, PROXY_UA } from './net.mjs'
 import { probeUrl, renderPage } from './page.mjs'
 import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
 // Automatically load .env.local or .env if present
 try {
@@ -1250,7 +1253,7 @@ server.listen(PORT)
 let hotkeyProc = null
 if (process.platform === 'win32') {
   try {
-    hotkeyProc = spawn('python', ['bridge/hotkey_daemon.py'], {
+    hotkeyProc = spawn('python', [join(__dirname, 'hotkey_daemon.py')], {
       stdio: 'inherit',
       shell: false,
     })
