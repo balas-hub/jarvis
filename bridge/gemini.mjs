@@ -608,6 +608,8 @@ export function createToolExecutor({ send, announceTool, settleTool, ask, ai, ge
           mimeType: capture.mimeType || 'image/jpeg',
           info: 'Frame captured successfully.',
         }
+      }
+
       if (name === 'ui_playground') {
         const active = Boolean(args.active)
         send({ type: 'ui', op: 'playground', args: { active } })

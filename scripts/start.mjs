@@ -66,10 +66,13 @@ function run(name, command, args, colour, env) {
   child.stdout.on('data', (d) => process.stdout.write(label(d) + '\n'))
   child.stderr.on('data', (d) => process.stderr.write(label(d) + '\n'))
   child.on('exit', (code) => {
-    // If either half dies the other is useless, so take the whole thing down
-    // rather than leave a half-running app that looks alive but cannot answer.
-    console.log(`\x1b[${colour}m${name}\x1b[0m exited (${code}); stopping the rest.`)
-    shutdown(code ?? 0)
+    // If either the bridge or the face server dies, the other is useless,
+    // so take the whole thing down. But if an auxiliary launcher (like 'app')
+    // exits or forks, keep the servers running.
+    if (name === 'bridge' || name === 'face') {
+      console.log(`\x1b[${colour}m${name}\x1b[0m exited (${code}); stopping the rest.`)
+      shutdown(code ?? 0)
+    }
   })
   children.push(child)
   return child

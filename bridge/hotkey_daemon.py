@@ -272,19 +272,27 @@ class SummonHandler(BaseHTTPRequestHandler):
 
 
 def run_http_server():
-    try:
-        server = HTTPServer(('127.0.0.1', 8789), SummonHandler)
-        server.serve_forever()
-    except Exception as e:
-        print(f"[hotkey] HTTP server error: {e}", file=sys.stderr)
+    for attempt in range(5):
+        try:
+            server = HTTPServer(('127.0.0.1', 8789), SummonHandler)
+            server.serve_forever()
+            break
+        except Exception:
+            time.sleep(0.3)
 
 
 def run_hotkey_loop():
     kill_existing_daemons()
+    time.sleep(0.2)
 
-    registered = user32.RegisterHotKey(None, HOTKEY_ID, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_J)
-    if not registered:
-        registered = user32.RegisterHotKey(None, HOTKEY_ID, MOD_CONTROL | MOD_SHIFT, VK_J)
+    registered = False
+    for attempt in range(5):
+        registered = user32.RegisterHotKey(None, HOTKEY_ID, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_J)
+        if not registered:
+            registered = user32.RegisterHotKey(None, HOTKEY_ID, MOD_CONTROL | MOD_SHIFT, VK_J)
+        if registered:
+            break
+        time.sleep(0.25)
 
     if not registered:
         print("[hotkey] Could not register global shortcut Ctrl+Shift+J", file=sys.stderr)
