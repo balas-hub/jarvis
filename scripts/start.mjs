@@ -145,14 +145,18 @@ if (appMode) {
     if (browser) {
       console.log(`  launching dedicated desktop system window...\n`)
       run('app', browser, [
-        `--app=${targetUrl}`,
+        `--app=${targetUrl}?autoboot=1`,
         '--window-size=1400,900',
         `--user-data-dir=${profileDir}`,
         '--autoplay-policy=no-user-gesture-required',
         '--enable-webgl',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--use-fake-ui-for-media-stream',
       ], '32', {})
     } else {
-      run('app', 'cmd', ['/c', 'start', targetUrl], '32', {})
+      run('app', 'cmd', ['/c', 'start', `${targetUrl}?autoboot=1`], '32', {})
     }
   }, 2200)
 } else {
