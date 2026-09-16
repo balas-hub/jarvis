@@ -262,6 +262,9 @@ export default function App() {
     const phase = store.getState().phase
     if (phase === 'offline' || phase === 'boot' || store.getState().muted) return
 
+    // Bring JARVIS window to mainstream when wake word is spoken
+    fetch('http://localhost:8787/summon', { method: 'POST' }).catch(() => {})
+
     store.getState().setError(null)
     sfx.play('wake')
 
@@ -640,6 +643,16 @@ export default function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
+
+  // Auto-ignite on startup so the microphone is active in the background like Google Voice Assistant
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (store.getState().phase === 'offline') {
+        void powerOn()
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
 
   // -- store sync for voice muted & isolation ------------------------------
 

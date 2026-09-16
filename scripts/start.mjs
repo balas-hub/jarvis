@@ -150,6 +150,9 @@ if (appMode) {
         `--user-data-dir=${profileDir}`,
         '--autoplay-policy=no-user-gesture-required',
         '--enable-webgl',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
       ], '32', {})
     } else {
       run('app', 'cmd', ['/c', 'start', targetUrl], '32', {})

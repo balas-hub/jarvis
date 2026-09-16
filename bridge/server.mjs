@@ -30,6 +30,7 @@ import { readFile, realpath, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve as resolvePath } from 'node:path'
 import { openRemote, proxyError, vetTarget, PROXY_UA } from './net.mjs'
 import { probeUrl, renderPage } from './page.mjs'
+import { spawn } from 'node:child_process'
 
 // Automatically load .env.local or .env if present
 try {
@@ -868,6 +869,14 @@ const handleRequest = async (req, res) => {
     return res.end(JSON.stringify({ ok: true, tts: eleven, stt: eleven }))
   }
 
+  if (req.method === 'POST' && req.url === '/summon') {
+    try {
+      await fetch('http://127.0.0.1:8789', { method: 'POST' }).catch(() => {})
+    } catch {}
+    res.writeHead(200, { ...cors, 'content-type': 'application/json' })
+    return res.end(JSON.stringify({ ok: true }))
+  }
+
   // Serve local image files to the page. Screenshots and generated art land on
   // disk as absolute paths, and a page served over http can't read file:// —
   // so the bridge, which can, hands them over.
@@ -1237,6 +1246,30 @@ const wss = new WebSocketServer({
   },
 })
 server.listen(PORT)
+
+let hotkeyProc = null
+if (process.platform === 'win32') {
+  try {
+    hotkeyProc = spawn('python', ['bridge/hotkey_daemon.py'], {
+      stdio: 'inherit',
+      shell: false,
+    })
+    hotkeyProc.on('error', (err) => {
+      console.warn('[jarvis] hotkey daemon error:', err.message)
+    })
+    const killHotkey = () => {
+      if (hotkeyProc) {
+        try { hotkeyProc.kill() } catch {}
+        hotkeyProc = null
+      }
+    }
+    process.on('exit', killHotkey)
+    process.on('SIGINT', killHotkey)
+    process.on('SIGTERM', killHotkey)
+  } catch (err) {
+    console.warn('[jarvis] hotkey daemon failed to spawn:', err.message)
+  }
+}
 
 console.log(`[jarvis] bridge listening on ws://localhost:${PORT}`)
 console.log(

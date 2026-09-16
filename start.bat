@@ -28,7 +28,7 @@ if not errorlevel 1 (
 )
 
 echo Launching standalone holographic window...
-echo Click INITIALISE and say "Hey Jarvis".
+echo Active in background. Say "Hey Jarvis" or press Ctrl+Shift+J to summon.
 echo Press Ctrl+C in this window to stop JARVIS.
 echo.
 
