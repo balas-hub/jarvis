@@ -641,28 +641,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
-  // Auto-boot into active/dormant standby on desktop, app mode, or autoboot parameter
-  useEffect(() => {
-    if (phase !== 'offline') return
-    const isDesktop =
-      typeof window !== 'undefined' &&
-      (window as unknown as { jarvisDesktop?: { isDesktop: boolean } }).jarvisDesktop?.isDesktop
-    const isStandalone =
-      typeof window !== 'undefined' &&
-      (window.matchMedia('(display-mode: standalone)').matches ||
-        window.location.search.includes('autoboot=1') ||
-        isDesktop)
-
-    if (isStandalone || isDesktop) {
-      const timer = setTimeout(() => {
-        if (store.getState().phase === 'offline') {
-          void powerOn()
-        }
-      }, 450)
-      return () => clearTimeout(timer)
-    }
-  }, [phase])
-
   // -- store sync for voice muted & isolation ------------------------------
 
   useEffect(() => {

@@ -6,25 +6,6 @@ import { BladeSweep, Blades } from './Blades'
 import { Effects } from './Effects'
 import { Pointer } from './Pointer'
 import { GestureGuide } from './GestureGuide'
-import { VoiceModal } from './VoiceModal'
-import { getActiveProfile } from '../lib/tts'
-import { getSttLang, setSttLang } from '../lib/voice'
-import * as hands from '../lib/hands'
-
-interface JarvisDesktop {
-  isDesktop: boolean
-  minimize: () => void
-  maximize: () => void
-  hideToTray: () => void
-  quit: () => void
-  summon: () => void
-}
-
-declare global {
-  interface Window {
-    jarvisDesktop?: JarvisDesktop
-  }
-}
 
 const statusText: Record<Phase, string> = {
   offline: 'OFFLINE',
@@ -173,7 +154,6 @@ export function Hud() {
   const connected = useStore((s) => s.connected)
   const error = useStore((s) => s.error)
   const level = useStore((s) => s.level)
-  const voice = useStore((s) => s.voice)
   const bootNote = useStore((s) => s.bootNote)
   const gestures = useStore((s) => s.gestures)
   const looking = useStore((s) => s.looking)
@@ -184,14 +164,7 @@ export function Hud() {
   // a single component knowing a theme exists.
   const colour = accentFor(phase, ui)
 
-  const [showVoiceModal, setShowVoiceModal] = useState(false)
-  const [activeProfileState, setActiveProfileState] = useState(getActiveProfile())
   const [inputText, setInputText] = useState('')
-  const [sttLang, setSttLangState] = useState<string>(getSttLang())
-
-  useEffect(() => {
-    setActiveProfileState(getActiveProfile())
-  }, [voice])
 
   const handleCommandSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -199,38 +172,6 @@ export function Hud() {
     if (!trimmed) return
     setInputText('')
     window.dispatchEvent(new CustomEvent('jarvis:send_command', { detail: trimmed }))
-  }
-
-  const handleTriggerTalk = () => {
-    window.dispatchEvent(new CustomEvent('jarvis:trigger_talk'))
-  }
-
-  const handleToggleLang = () => {
-    const next = sttLang === 'ta-IN' ? 'en-IN' : 'ta-IN'
-    setSttLang(next)
-    setSttLangState(next)
-  }
-
-  const toggleGestures = () => {
-    if (gestures) {
-      hands.disableHands()
-      useStore.getState().setGestures(false)
-    } else {
-      useStore.getState().setError(null)
-      void hands
-        .enableHands()
-        .then(() => useStore.getState().setGestures(true))
-        .catch((err: Error) => {
-          useStore.getState().setGestures(false)
-          useStore
-            .getState()
-            .setError(
-              err?.name === 'NotAllowedError'
-                ? 'Camera access denied — gesture control is unavailable.'
-                : `Gesture control failed to start: ${err?.message ?? err}`,
-            )
-        })
-    }
   }
 
   useEffect(() => {
@@ -272,41 +213,6 @@ export function Hud() {
                 LISTENING and PROCESSING for the rest of the session. */}
             {phase === 'boot' && bootNote ? bootNote : statusText[phase]}
           </span>
-        </div>
-
-        <div className="hud-top-right">
-          <span className="hud-engine-tag" title="Primary Intelligence: Google Gemini 3.5 Flash">
-            <span className="engine-pulse" />
-            GEMINI 3.5 FLASH
-          </span>
-          {typeof window !== 'undefined' && window.jarvisDesktop?.isDesktop && (
-            <div className="hud-window-controls">
-              <button
-                type="button"
-                className="hud-win-btn"
-                title="Minimize window"
-                onClick={() => window.jarvisDesktop?.minimize()}
-              >
-                —
-              </button>
-              <button
-                type="button"
-                className="hud-win-btn"
-                title="Maximize / Restore window"
-                onClick={() => window.jarvisDesktop?.maximize()}
-              >
-                ▢
-              </button>
-              <button
-                type="button"
-                className="hud-win-btn hud-win-close"
-                title="Hide to System Tray (runs in background)"
-                onClick={() => window.jarvisDesktop?.hideToTray()}
-              >
-                ✕
-              </button>
-            </div>
-          )}
         </div>
       </header>
 
@@ -441,8 +347,8 @@ export function Hud() {
             className="hud-cmd-input"
             placeholder={
               phase === 'listening'
-                ? 'Listening to voice... (or type any command & press Enter)'
-                : "Type a command (e.g. 'system status', 'open youtube') or click TALK..."
+                ? 'Listening to voice... (or type a command & press Enter)'
+                : 'Type a command to execute (or say “Hey Jarvis”)...'
             }
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
@@ -455,58 +361,7 @@ export function Hud() {
           >
             EXECUTE
           </button>
-          <button
-            type="button"
-            className={`hud-cmd-mic ${phase === 'listening' ? 'pulsing' : ''}`}
-            onClick={handleTriggerTalk}
-            title="Click to talk (or press Space)"
-          >
-            {phase === 'listening' ? '🔴 LISTENING' : '🎙️ TALK'}
-          </button>
-          <button
-            type="button"
-            className="hud-cmd-lang"
-            onClick={handleToggleLang}
-            title={`Speech recognition language: ${sttLang === 'ta-IN' ? 'Tamil' : 'English (India)'}. Click to toggle.`}
-          >
-            LANG: {sttLang === 'ta-IN' ? 'TA' : 'EN'}
-          </button>
         </form>
-
-        <div className="hud-controls">
-          <button
-            type="button"
-            className={`hud-gesture-btn ${gestures ? 'active' : ''}`}
-            onClick={toggleGestures}
-            title={gestures ? 'Click to disable gesture tracking (or press G)' : 'Click to enable webcam gesture tracking (or press G)'}
-          >
-            <span className="gesture-btn-icon">✋</span>
-            <span>GESTURES: {gestures ? 'ONLINE' : 'OFF'}</span>
-            <kbd className="gesture-btn-key">G</kbd>
-          </button>
-
-          <button
-            type="button"
-            className="hud-voice-btn active"
-            onClick={() => setShowVoiceModal(true)}
-            title="Click to select voice (or press V to cycle)"
-          >
-            <span className="voice-btn-icon">🎙️</span>
-            <span>VOICE: {activeProfileState.name.toUpperCase()}</span>
-            <kbd className="voice-btn-key">V</kbd>
-          </button>
-        </div>
-        <div className="hud-hint-bar">
-          <span className="hint">
-            say <b>“hey jarvis”</b> · <kbd>Space</kbd> talk · <kbd>Ctrl+Shift+J</kbd> summon / hide
-            {voice && (
-              <>
-                {' · '}
-                <kbd>V</kbd> voice: {voice.replace(/\(.*?\)/g, '').trim()}
-              </>
-            )}
-          </span>
-        </div>
       </footer>
 
       {/* Last, so a flash or a tear reads as being on the glass rather than
@@ -523,11 +378,6 @@ export function Hud() {
         </div>
       )}
       <GestureGuide live={gestures} />
-      <VoiceModal
-        isOpen={showVoiceModal}
-        onClose={() => setShowVoiceModal(false)}
-        onVoiceChanged={(p) => setActiveProfileState(p)}
-      />
     </div>
   )
 }

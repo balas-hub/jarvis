@@ -126,75 +126,6 @@ body::after {
   50% { opacity: 0.35; transform: scale(0.75); }
 }
 
-.hud-top-right {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-left: 20px;
-}
-
-.hud-engine-tag {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 8px;
-  letter-spacing: 0.22em;
-  color: color-mix(in srgb, var(--accent) 85%, white);
-  background: color-mix(in srgb, var(--accent) 12%, rgba(2, 10, 16, 0.7));
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 2px;
-  padding: 4px 10px;
-  backdrop-filter: blur(8px);
-  user-select: none;
-  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 15%, transparent);
-}
-
-.engine-pulse {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 8px var(--accent);
-  animation: pulse 1.5s infinite alternate;
-}
-
-.hud-window-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  pointer-events: auto;
-}
-
-.hud-win-btn {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  color: color-mix(in srgb, var(--accent) 80%, white);
-  border-radius: 2px;
-  width: 24px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-
-.hud-win-btn:hover {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-  border-color: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 12px var(--accent);
-}
-
-.hud-win-close:hover {
-  background: rgba(239, 68, 68, 0.55);
-  border-color: #ef4444;
-  color: #fff;
-  box-shadow: 0 0 12px #ef4444;
-}
-
 /* Side rails */
 
 .rail {
@@ -325,7 +256,7 @@ body::after {
 .log {
   position: absolute;
   left: 50%;
-  bottom: 185px;
+  bottom: 130px;
   transform: translateX(-50%);
   width: min(820px, 78vw);
   max-height: 250px;
@@ -379,7 +310,7 @@ body::after {
 .caption {
   position: absolute;
   left: 50%;
-  bottom: 136px;
+  bottom: 80px;
   transform: translateX(-50%);
   font-size: 14px;
   text-transform: none;
@@ -538,156 +469,6 @@ body::after {
 .hud-cmd-send:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-
-.hud-cmd-mic {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  color: color-mix(in srgb, var(--accent) 90%, white);
-  border-radius: 2px;
-  padding: 5px 10px;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  transition: all 150ms ease;
-}
-
-.hud-cmd-mic:hover {
-  background: color-mix(in srgb, var(--accent) 30%, transparent);
-  border-color: var(--accent);
-}
-
-.hud-cmd-mic.pulsing {
-  background: rgba(255, 60, 60, 0.35);
-  border-color: #ff4d4d;
-  color: #fff;
-  box-shadow: 0 0 16px rgba(255, 60, 60, 0.6);
-  animation: micPulse 1.2s infinite alternate;
-}
-
-@keyframes micPulse {
-  from { opacity: 0.75; }
-  to { opacity: 1; transform: scale(1.02); }
-}
-
-.hud-cmd-lang {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  color: color-mix(in srgb, var(--accent) 85%, white);
-  border-radius: 2px;
-  padding: 5px 8px;
-  font-family: inherit;
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  cursor: pointer;
-  transition: all 150ms ease;
-}
-
-.hud-cmd-lang:hover {
-  background: color-mix(in srgb, var(--accent) 20%, transparent);
-  border-color: var(--accent);
-}
-
-.hud-controls {
-  pointer-events: auto;
-}
-
-.hud-gesture-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 14px;
-  font-family: inherit;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: color-mix(in srgb, var(--accent) 90%, white);
-  background: color-mix(in srgb, var(--accent) 10%, rgba(2, 8, 12, 0.75));
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 2px;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: all 200ms ease;
-  pointer-events: auto;
-}
-
-.hud-gesture-btn:hover {
-  background: color-mix(in srgb, var(--accent) 24%, rgba(2, 8, 12, 0.85));
-  border-color: var(--accent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-.hud-gesture-btn.active {
-  background: color-mix(in srgb, var(--accent) 28%, rgba(2, 8, 12, 0.9));
-  border-color: var(--accent);
-  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 60%, transparent);
-  color: #fff;
-}
-
-.gesture-btn-icon {
-  font-size: 12px;
-}
-
-.gesture-btn-key {
-  margin-left: 4px;
-  font-size: 8px;
-  padding: 1px 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-}
-
-.hud-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.hud-voice-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 5px 14px;
-  font-family: inherit;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  color: color-mix(in srgb, var(--accent) 90%, white);
-  background: color-mix(in srgb, var(--accent) 12%, rgba(2, 8, 12, 0.75));
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  border-radius: 2px;
-  cursor: pointer;
-  backdrop-filter: blur(8px);
-  transition: all 200ms ease;
-  pointer-events: auto;
-}
-
-.hud-voice-btn:hover {
-  background: color-mix(in srgb, var(--accent) 26%, rgba(2, 8, 12, 0.85));
-  border-color: var(--accent);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-.hud-voice-btn.active {
-  background: color-mix(in srgb, var(--accent) 24%, rgba(2, 8, 12, 0.9));
-  border-color: var(--accent);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 50%, transparent);
-  color: #fff;
-}
-
-.voice-btn-icon {
-  font-size: 12px;
-}
-
-.voice-btn-key {
-  margin-left: 4px;
-  font-size: 8px;
-  padding: 1px 4px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 /* ------------------------------------------------------------- Voice Modal */
