@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store'
-import { hands, THUMB_TIP, INDEX_TIP } from '../lib/hands'
+import { hands, THUMB_TIP, INDEX_TIP, MIDDLE_TIP } from '../lib/hands'
 
 const PALETTE = [
   { name: 'CYAN', color: '#00ffff' },
@@ -38,19 +38,27 @@ export function PlaygroundHud() {
 
       if (!pts || pts.length < 21) return
 
-      // Physical touch contact detection
+      // Physical touch contact detection (thumb + index)
       const pThumb = pts[THUMB_TIP]
       const pIndex = pts[INDEX_TIP]
+      const pMiddle = pts[MIDDLE_TIP]
+
       const touchDist = Math.hypot(pThumb.x - pIndex.x, pThumb.y - pIndex.y)
       const isPhysicalTouch = touchDist < Math.max(26, h.span * 0.22)
 
+      // Thumb + middle finger pinch for clicking options
+      const thumbMiddleDist = Math.hypot(pThumb.x - pMiddle.x, pThumb.y - pMiddle.y)
+      const isThumbMiddlePinch = thumbMiddleDist < Math.max(26, h.span * 0.22)
+
       const isFist = !f.index && !f.middle && !f.ring && !f.pinky
       const isPointer = f.index && !f.middle && !f.ring && !f.pinky && !isPhysicalTouch
-      const isDraw = f.index && f.middle && !f.ring && !f.pinky && !isPhysicalTouch
+      const isDraw = f.index && f.middle && !f.ring && !f.pinky && !isPhysicalTouch && !isThumbMiddlePinch
       const isErase = f.index && f.middle && f.ring && !f.pinky
       const isPalm = f.thumb && f.index && f.middle && f.ring && f.pinky
 
-      if (isPhysicalTouch) {
+      if (isThumbMiddlePinch) {
+        setGestureText('👌 SELECTING OPTION — PINCH THUMB & MIDDLE TO CLICK')
+      } else if (isPhysicalTouch) {
         setGestureText('✨ DRAGGING — TOUCH THUMB & INDEX TO MOVE SHAPES')
       } else if (isFist) {
         setGestureText('✊ 3D REVOLVE & ROTATE — MOVE CLOSED FIST IN 3D SPACE')
@@ -63,7 +71,7 @@ export function PlaygroundHud() {
       } else if (isPalm) {
         setGestureText('🖐️ OPEN PALM (IDLE)')
       } else {
-        setGestureText('STANDBY — 1 FINGER: POINT · 2 FINGERS: DRAW · 3 FINGERS: ERASE · FIST: 3D REVOLVE')
+        setGestureText('STANDBY — ☝️ POINT · ✌️ DRAW · 🤟 ERASE · ✊ 3D REVOLVE · 👌 PINCH THUMB+MIDDLE TO CLICK')
       }
     }, 100)
     return () => clearInterval(timer)

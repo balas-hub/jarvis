@@ -144,11 +144,15 @@ export function Playground3D() {
   const prevFistAngleRef = useRef<number | null>(null)
   const isTouchActiveRef = useRef<boolean>(false)
 
+  // Thumb + Middle finger pinch click tracking
+  const prevThumbMiddlePinchRef = useRef<boolean>(false)
+  const lastHoveredElementRef = useRef<HTMLElement | null>(null)
+
   // Indicator visual meshes
   const pointerMeshRef = useRef<THREE.Group>(null)
   const drawTipMeshRef = useRef<THREE.Mesh>(null)
   const eraserMeshRef = useRef<THREE.Group>(null)
-  const revolveGimbalRef = useRef<THREE.Group>(null)
+  const clickFeedbackMeshRef = useRef<THREE.Mesh>(null)
 
   // Clear event listener
   useEffect(() => {
@@ -184,6 +188,16 @@ export function Playground3D() {
     return () => window.removeEventListener('jarvis-playground-spawn-shape', handleSpawn)
   }, [playgroundColor, shapes.length])
 
+  // Cleanup hand-hover on unmount
+  useEffect(() => {
+    return () => {
+      if (lastHoveredElementRef.current) {
+        lastHoveredElementRef.current.classList.remove('hand-hover')
+        lastHoveredElementRef.current = null
+      }
+    }
+  }, [])
+
   useFrame(() => {
     if (!playground || !groupRef.current) return
 
@@ -205,7 +219,7 @@ export function Playground3D() {
     if (pointerMeshRef.current) pointerMeshRef.current.visible = false
     if (drawTipMeshRef.current) drawTipMeshRef.current.visible = false
     if (eraserMeshRef.current) eraserMeshRef.current.visible = false
-    if (revolveGimbalRef.current) revolveGimbalRef.current.visible = false
+    if (clickFeedbackMeshRef.current) clickFeedbackMeshRef.current.visible = false
 
     hoveredShapeIdRef.current = null
 
@@ -214,6 +228,11 @@ export function Playground3D() {
       prevFistAngleRef.current = null
       draggedShapeIdRef.current = null
       isTouchActiveRef.current = false
+      prevThumbMiddlePinchRef.current = false
+      if (lastHoveredElementRef.current) {
+        lastHoveredElementRef.current.classList.remove('hand-hover')
+        lastHoveredElementRef.current = null
+      }
       return
     }
 
@@ -230,7 +249,7 @@ export function Playground3D() {
     const wrist = pts[WRIST]
     const middleMcp = pts[9]
 
-    // Physical touch contact detection (distance between thumb and index tips)
+    // 1. Physical touch contact detection (thumb + index) for dragging
     const touchDistance = Math.hypot(pThumb.x - pIndex.x, pThumb.y - pIndex.y)
     const touchThreshold = Math.max(26, h.span * 0.20)
     const releaseThreshold = Math.max(45, h.span * 0.35)
@@ -246,24 +265,85 @@ export function Playground3D() {
     }
     const isPhysicalContact = isTouchActiveRef.current
 
+    // 2. Thumb + Middle finger pinch detection for clicking / selecting options
+    const thumbMiddleDist = Math.hypot(pThumb.x - pMiddle.x, pThumb.y - pMiddle.y)
+    const isThumbMiddlePinch = thumbMiddleDist < Math.max(26, h.span * 0.22)
+
     // Finger gestures
     const isFist = !f.index && !f.middle && !f.ring && !f.pinky
     const isPointer = f.index && !f.middle && !f.ring && !f.pinky && !isPhysicalContact
-    const isDraw = f.index && f.middle && !f.ring && !f.pinky && !isPhysicalContact
+    const isDraw = f.index && f.middle && !f.ring && !f.pinky && !isPhysicalContact && !isThumbMiddlePinch
     const isErase = f.index && f.middle && f.ring && !f.pinky
-    // Palm (5 fingers) is neutral/idle
 
     const worldToGroup = new THREE.Matrix4().copy(groupRef.current.matrixWorld).invert()
 
     // ----------------------------------------------------
-    // GESTURE 1: CLOSED FIST -> 3D ROTATE & REVOLVE
+    // UI HOVER & THUMB+MIDDLE PINCH CLICK DETECTION
     // ----------------------------------------------------
-    if (isFist) {
-      if (revolveGimbalRef.current) {
-        revolveGimbalRef.current.position.copy(groupRef.current.position)
-        revolveGimbalRef.current.visible = true
+    // Clear old hover class
+    if (lastHoveredElementRef.current) {
+      lastHoveredElementRef.current.classList.remove('hand-hover')
+      lastHoveredElementRef.current = null
+    }
+
+    // Check element directly under index pointer
+    const elUnder = document.elementFromPoint(pIndex.x, pIndex.y)
+    let targetBtn: HTMLElement | null = elUnder
+      ? (elUnder.closest('.playground-shape-btn, .playground-color-btn, .playground-btn') as HTMLElement)
+      : null
+
+    // Proximity check if not directly over
+    if (!targetBtn) {
+      const buttons = Array.from(
+        document.querySelectorAll<HTMLElement>('.playground-shape-btn, .playground-color-btn, .playground-btn')
+      )
+      let closestDist = 38
+      for (const btn of buttons) {
+        const rect = btn.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+        const d = Math.hypot(pIndex.x - cx, pIndex.y - cy)
+        if (d < closestDist) {
+          closestDist = d
+          targetBtn = btn
+        }
+      }
+    }
+
+    if (targetBtn) {
+      targetBtn.classList.add('hand-hover')
+      lastHoveredElementRef.current = targetBtn
+    }
+
+    // Handle rising-edge click when thumb & middle pinch
+    if (isThumbMiddlePinch && !prevThumbMiddlePinchRef.current) {
+      if (clickFeedbackMeshRef.current) {
+        const clickWorld = toWorld(pIndex.x, pIndex.y)
+        clickFeedbackMeshRef.current.position.copy(clickWorld)
+        clickFeedbackMeshRef.current.visible = true
       }
 
+      if (targetBtn) {
+        targetBtn.click()
+        targetBtn.classList.add('hand-click')
+        const activeBtn = targetBtn
+        setTimeout(() => {
+          activeBtn?.classList.remove('hand-click')
+        }, 280)
+      } else if (hoveredShapeIdRef.current) {
+        // Re-color hovered 3D shape with active color
+        const targetShapeId = hoveredShapeIdRef.current
+        setShapes((prev) =>
+          prev.map((s) => (s.id === targetShapeId ? { ...s, color: playgroundColor } : s))
+        )
+      }
+    }
+    prevThumbMiddlePinchRef.current = isThumbMiddlePinch
+
+    // ----------------------------------------------------
+    // GESTURE 1: CLOSED FIST -> 3D ROTATE & REVOLVE (Legends removed)
+    // ----------------------------------------------------
+    if (isFist) {
       const fistPos = new THREE.Vector2(wrist.x / winW, wrist.y / winH)
       const fistAngle = Math.atan2(middleMcp.y - wrist.y, middleMcp.x - wrist.x)
 
@@ -302,7 +382,7 @@ export function Playground3D() {
         pointerMeshRef.current.visible = true
       }
 
-      // Check if pointer is hovering over any shape
+      // Check if pointer is hovering over any 3D shape
       const groupPos = worldPos.clone().applyMatrix4(worldToGroup)
       let closestDist = 0.8
       let hitId: string | null = null
@@ -558,21 +638,11 @@ export function Playground3D() {
         </mesh>
       </group>
 
-      {/* Holographic 3D Revolve & Orbit Gimbal (Closed Fist) */}
-      <group ref={revolveGimbalRef} visible={false}>
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[2.5, 0.02, 16, 64]} />
-          <meshBasicMaterial color={new THREE.Color('#00f3ff')} transparent opacity={0.7} />
-        </mesh>
-        <mesh rotation={[0, Math.PI / 2, 0]}>
-          <torusGeometry args={[2.5, 0.02, 16, 64]} />
-          <meshBasicMaterial color={new THREE.Color('#ffaa00')} transparent opacity={0.7} />
-        </mesh>
-        <mesh>
-          <torusGeometry args={[2.5, 0.02, 16, 64]} />
-          <meshBasicMaterial color={new THREE.Color('#cc00ff')} transparent opacity={0.7} />
-        </mesh>
-      </group>
+      {/* Holographic Click Feedback Pulse (Thumb + Middle Pinch) */}
+      <mesh ref={clickFeedbackMeshRef} visible={false}>
+        <ringGeometry args={[0.15, 0.24, 24]} />
+        <meshBasicMaterial color={new THREE.Color('#ffffff')} side={THREE.DoubleSide} transparent opacity={0.9} />
+      </mesh>
     </>
   )
 }
