@@ -179,13 +179,17 @@ export const GEMINI_TOOLS = [
   },
   {
     name: 'ui_playground',
-    description: 'Enter or exit 3D holographic playground mode for touchless gesture drawing with index finger, two-finger erasing, pinch drag & drop, and 5-finger 3D rotation.',
+    description: 'Control 3D holographic playground mode. Features 1-finger precision pointer, 2-finger drawing, 3-finger erasing, physical touch drag-and-drop, closed-fist 3D rotate & revolve, and prebuilt 3D shapes.',
     parameters: {
       type: 'OBJECT',
       properties: {
-        active: { type: 'BOOLEAN', description: 'True to activate 3D playground mode, false to deactivate.' }
-      },
-      required: ['active']
+        active: { type: 'BOOLEAN', description: 'True to activate 3D playground mode, false to deactivate.' },
+        shape: {
+          type: 'STRING',
+          description: 'Optional prebuilt 3D shape to spawn into the playground (cube, sphere, pyramid, torus, reactor).',
+          enum: ['cube', 'sphere', 'pyramid', 'torus', 'reactor']
+        }
+      }
     }
   },
   {
@@ -611,17 +615,21 @@ export function createToolExecutor({ send, announceTool, settleTool, ask, ai, ge
       }
 
       if (name === 'ui_playground') {
-        const active = Boolean(args.active)
+        const active = args.active !== false
         send({ type: 'ui', op: 'playground', args: { active } })
         if (active) {
           send({ type: 'ui', op: 'gestures', args: { enabled: true } })
+          if (args.shape) {
+            send({ type: 'ui', op: 'spawn_shape', args: { shape: args.shape } })
+          }
         }
         settleTool(null, false)
         return {
           success: true,
           active,
+          shape: args.shape || null,
           message: active
-            ? '3D Holographic Playground mode activated. Gesture drawing with index finger, two-finger erase, pinch drag-and-drop, and 5-finger 3D rotation are now online.'
+            ? `3D Holographic Playground mode active.${args.shape ? ` Spawned 3D ${args.shape}.` : ''} 1-finger pointer, 2-finger drawing, 3-finger erase, physical touch drag, and closed-fist 3D revolve & rotate are online.`
             : '3D Holographic Playground mode deactivated.',
         }
       }

@@ -56,9 +56,9 @@ const MIDDLE_MCP = 9
 const MIDDLE_PIP = 10
 export const MIDDLE_TIP = 12
 const RING_PIP = 14
-const RING_TIP = 16
+export const RING_TIP = 16
 const PINKY_PIP = 18
-const PINKY_TIP = 20
+export const PINKY_TIP = 20
 
 /**
  * The skeleton, as pairs of landmark indices.

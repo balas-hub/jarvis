@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store'
-import { hands } from '../lib/hands'
+import { hands, THUMB_TIP, INDEX_TIP } from '../lib/hands'
 
 const PALETTE = [
   { name: 'CYAN', color: '#00ffff' },
@@ -8,6 +8,14 @@ const PALETTE = [
   { name: 'VIOLET', color: '#cc00ff' },
   { name: 'EMERALD', color: '#00ff66' },
   { name: 'CRIMSON', color: '#ff2244' },
+]
+
+const SHAPES = [
+  { id: 'cube', label: 'CUBE', icon: '◻️' },
+  { id: 'sphere', label: 'SPHERE', icon: '⚪' },
+  { id: 'pyramid', label: 'PYRAMID', icon: '▲' },
+  { id: 'torus', label: 'TORUS', icon: '⭕' },
+  { id: 'reactor', label: 'REACTOR', icon: '⚛️' },
 ]
 
 export function PlaygroundHud() {
@@ -26,16 +34,36 @@ export function PlaygroundHud() {
       }
       const h = hands[0]
       const f = h.fingers
-      if (f.index && !f.middle && !f.ring && !f.pinky) {
-        setGestureText('☝️ DRAWING — INDEX FINGER POINTED')
-      } else if (f.index && f.middle && !f.ring && !f.pinky) {
-        setGestureText('✌️ ERASING — TWO FINGERS POINTED')
-      } else if (h.pinched) {
-        setGestureText('🤏 DRAGGING — PINCH THUMB & INDEX')
-      } else if (f.thumb && f.index && f.middle && f.ring && f.pinky) {
-        setGestureText('🖐️ 3D ROTATION — OPEN PALM ROTATING')
+      const pts = h.points
+
+      if (!pts || pts.length < 21) return
+
+      // Physical touch contact detection
+      const pThumb = pts[THUMB_TIP]
+      const pIndex = pts[INDEX_TIP]
+      const touchDist = Math.hypot(pThumb.x - pIndex.x, pThumb.y - pIndex.y)
+      const isPhysicalTouch = touchDist < Math.max(26, h.span * 0.22)
+
+      const isFist = !f.index && !f.middle && !f.ring && !f.pinky
+      const isPointer = f.index && !f.middle && !f.ring && !f.pinky && !isPhysicalTouch
+      const isDraw = f.index && f.middle && !f.ring && !f.pinky && !isPhysicalTouch
+      const isErase = f.index && f.middle && f.ring && !f.pinky
+      const isPalm = f.thumb && f.index && f.middle && f.ring && f.pinky
+
+      if (isPhysicalTouch) {
+        setGestureText('✨ DRAGGING — TOUCH THUMB & INDEX TO MOVE SHAPES')
+      } else if (isFist) {
+        setGestureText('✊ 3D REVOLVE & ROTATE — MOVE CLOSED FIST IN 3D SPACE')
+      } else if (isPointer) {
+        setGestureText('☝️ POINTER — AIM & TARGET IN 3D SPACE (NO DRAW)')
+      } else if (isDraw) {
+        setGestureText('✌️ DRAWING — 2 FINGERS POINTED')
+      } else if (isErase) {
+        setGestureText('🤟 ERASING — 3 FINGERS POINTED')
+      } else if (isPalm) {
+        setGestureText('🖐️ OPEN PALM (IDLE)')
       } else {
-        setGestureText('STANDBY — POINT INDEX TO DRAW, 2 FINGERS TO ERASE')
+        setGestureText('STANDBY — 1 FINGER: POINT · 2 FINGERS: DRAW · 3 FINGERS: ERASE · FIST: 3D REVOLVE')
       }
     }, 100)
     return () => clearInterval(timer)
@@ -51,6 +79,14 @@ export function PlaygroundHud() {
     setPlayground(false)
   }
 
+  const handleSpawnShape = (type: string) => {
+    window.dispatchEvent(
+      new CustomEvent('jarvis-playground-spawn-shape', {
+        detail: { type, color: playgroundColor },
+      })
+    )
+  }
+
   return (
     <div className="playground-hud" aria-label="3D Holographic Playground Controls">
       {/* Top Banner */}
@@ -58,32 +94,59 @@ export function PlaygroundHud() {
         <div className="playground-title-row">
           <span className="playground-pulse" />
           <span className="playground-tag">HOLOGRAPHIC 3D PLAYGROUND</span>
-          <span className="playground-badge">GESTURE ENGINE V2</span>
+          <span className="playground-badge">SPATIAL GESTURE V2</span>
         </div>
         <div className="playground-status-line">{gestureText}</div>
       </div>
 
-      {/* Floating Toolbar */}
+      {/* Floating Control Dock */}
       <div className="playground-dock">
+        {/* Prebuilt Shapes Toolbar */}
+        <div className="playground-shapes-bar">
+          <span className="playground-section-label">SHAPES:</span>
+          {SHAPES.map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              className="playground-shape-btn"
+              onClick={() => handleSpawnShape(s.id)}
+              title={`Spawn 3D ${s.label}`}
+            >
+              <span className="playground-shape-icon">{s.icon}</span>
+              <span>{s.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div className="playground-divider" />
+
+        {/* Color Palette */}
         <div className="playground-colors">
+          <span className="playground-section-label">COLOR:</span>
           {PALETTE.map((p) => (
             <button
               key={p.color}
               type="button"
               className={`playground-color-btn ${playgroundColor === p.color ? 'active' : ''}`}
-              style={{ backgroundColor: p.color, boxShadow: playgroundColor === p.color ? `0 0 12px ${p.color}` : 'none' }}
+              style={{
+                backgroundColor: p.color,
+                boxShadow: playgroundColor === p.color ? `0 0 12px ${p.color}` : 'none',
+              }}
               onClick={() => setPlaygroundColor(p.color)}
               title={p.name}
             />
           ))}
         </div>
 
+        <div className="playground-divider" />
+
+        {/* Canvas Actions */}
         <div className="playground-actions">
           <button
             type="button"
             className="playground-btn clear"
             onClick={handleClear}
-            title="Erase all drawn shapes"
+            title="Erase all drawn and spawned shapes"
           >
             CLEAR CANVAS
           </button>

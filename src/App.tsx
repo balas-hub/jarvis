@@ -386,7 +386,7 @@ export default function App() {
       void hands.enableHands().then(() => store.getState().setGestures(true))
       const ack = createSpeaker()
       speaker.current = ack
-      ack.say('Activating 3D holographic playground mode, sir. Ready for gesture drawing.')
+      ack.say('Activating 3D holographic playground mode, sir. Spatial gesture controls are online.')
       void ack.end()
       return
     }
@@ -397,6 +397,26 @@ export default function App() {
       const ack = createSpeaker()
       speaker.current = ack
       ack.say('Exiting playground mode. Returning to standard HUD.')
+      void ack.end()
+      return
+    }
+
+    // Voice command: Spawn prebuilt 3D shapes
+    const shapeMatch = lower.match(/^(?:spawn|add|create|render)\s+(?:a\s+|an\s+)?(cube|sphere|pyramid|torus|arc reactor|reactor)$/i)
+    if (shapeMatch) {
+      silence()
+      let shapeType = shapeMatch[1].toLowerCase()
+      if (shapeType === 'arc reactor') shapeType = 'reactor'
+      store.getState().setPlayground(true)
+      void hands.enableHands().then(() => store.getState().setGestures(true))
+      window.dispatchEvent(
+        new CustomEvent('jarvis-playground-spawn-shape', {
+          detail: { type: shapeType, color: store.getState().playgroundColor },
+        })
+      )
+      const ack = createSpeaker()
+      speaker.current = ack
+      ack.say(`Deploying 3D holographic ${shapeMatch[1]} into the workspace, sir.`)
       void ack.end()
       return
     }
@@ -569,6 +589,18 @@ export default function App() {
                 s.setError(`Gesture tracking failed: ${err.message}`)
               })
           }
+          break
+        }
+        case 'spawn_shape': {
+          const sArgs = args as { shape?: string }
+          const type = sArgs?.shape || 'cube'
+          s.setPlayground(true)
+          void hands.enableHands().then(() => s.setGestures(true))
+          window.dispatchEvent(
+            new CustomEvent('jarvis-playground-spawn-shape', {
+              detail: { type, color: s.playgroundColor },
+            })
+          )
           break
         }
         case 'face_identified': {

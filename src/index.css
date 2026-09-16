@@ -2584,3 +2584,53 @@ kbd {
   color: #01060c;
   box-shadow: 0 0 12px #00ffff;
 }
+
+.playground-section-label {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.45);
+  margin-right: 4px;
+}
+
+.playground-shapes-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.playground-shape-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: rgba(0, 243, 255, 0.08);
+  border: 1px solid rgba(0, 243, 255, 0.25);
+  color: #cceeff;
+  border-radius: 2px;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.playground-shape-btn:hover {
+  background: rgba(0, 243, 255, 0.25);
+  border-color: #00f3ff;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 243, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+.playground-shape-icon {
+  font-size: 11px;
+}
+
+.playground-divider {
+  height: 1px;
+  background: rgba(0, 243, 255, 0.15);
+  width: 100%;
+}
+
